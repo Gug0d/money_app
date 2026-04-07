@@ -10,6 +10,10 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { Mission } from '../../types/Mission';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MissionsStackParamList } from './MissionDetailsScreen';
+
+type Props = NativeStackScreenProps<MissionsStackParamList, 'MissionsList'>;
 
 const missions: Mission[] = [
   {
@@ -20,6 +24,33 @@ const missions: Mission[] = [
     xpReward: 30,
     finCoinReward: 10,
     type: 'quiz',
+    question: 'Как лучше поступить с ежемесячным доходом?',
+    options: [
+      {
+        id: 'm001_o1',
+        text: 'Потратить всё сразу на развлечения',
+        isCorrect: false,
+        explanation: 'Так ты не сможешь контролировать расходы и ничего не отложишь.',
+        xp: 5,
+        finCoin: 2,
+      },
+      {
+        id: 'm001_o2',
+        text: 'Сначала распределить деньги на обязательные траты, накопления и личные расходы',
+        isCorrect: true,
+        explanation: 'Это правильный подход: сначала план, потом траты.',
+        xp: 30,
+        finCoin: 10,
+      },
+      {
+        id: 'm001_o3',
+        text: 'Вообще не вести учёт денег',
+        isCorrect: false,
+        explanation: 'Без учёта сложно понять, куда уходят деньги.',
+        xp: 5,
+        finCoin: 2,
+      },
+    ],
   },
   {
     id: 'm002',
@@ -29,6 +60,33 @@ const missions: Mission[] = [
     xpReward: 45,
     finCoinReward: 20,
     type: 'decision',
+    question: 'Что лучше сделать, если у тебя неожиданно сломался телефон?',
+    options: [
+      {
+        id: 'm002_o1',
+        text: 'Взять дорогой кредит на новый телефон без расчётов',
+        isCorrect: false,
+        explanation: 'Импульсивный кредит может создать лишнюю долговую нагрузку.',
+        xp: 10,
+        finCoin: 5,
+      },
+      {
+        id: 'm002_o2',
+        text: 'Использовать часть финансовой подушки или выбрать более доступное решение',
+        isCorrect: true,
+        explanation: 'Финансовая подушка нужна именно для непредвиденных ситуаций.',
+        xp: 45,
+        finCoin: 20,
+      },
+      {
+        id: 'm002_o3',
+        text: 'Попросить деньги у всех знакомых без плана возврата',
+        isCorrect: false,
+        explanation: 'Это неустойчивое решение и может привести к проблемам.',
+        xp: 10,
+        finCoin: 5,
+      },
+    ],
   },
   {
     id: 'm003',
@@ -38,6 +96,33 @@ const missions: Mission[] = [
     xpReward: 35,
     finCoinReward: 15,
     type: 'quiz',
+    question: 'Как безопаснее всего пользоваться банковской картой в интернете?',
+    options: [
+      {
+        id: 'm003_o1',
+        text: 'Сообщать CVV-код друзьям, если они просят оплатить покупку',
+        isCorrect: false,
+        explanation: 'CVV и данные карты нельзя никому передавать.',
+        xp: 5,
+        finCoin: 2,
+      },
+      {
+        id: 'm003_o2',
+        text: 'Покупать только на проверенных сайтах и никому не сообщать данные карты',
+        isCorrect: true,
+        explanation: 'Это базовое правило безопасности при онлайн-оплате.',
+        xp: 35,
+        finCoin: 15,
+      },
+      {
+        id: 'm003_o3',
+        text: 'Хранить пин-код в заметках без защиты',
+        isCorrect: false,
+        explanation: 'Так данные карты могут легко попасть к посторонним.',
+        xp: 5,
+        finCoin: 2,
+      },
+    ],
   },
   {
     id: 'm004',
@@ -47,6 +132,33 @@ const missions: Mission[] = [
     xpReward: 60,
     finCoinReward: 35,
     type: 'decision',
+    question: 'Ты хочешь взять первый кредит. Что нужно сделать в первую очередь?',
+    options: [
+      {
+        id: 'm004_o1',
+        text: 'Сразу подписать договор, не читая условия',
+        isCorrect: false,
+        explanation: 'Так можно пропустить ставку, комиссии и штрафы.',
+        xp: 10,
+        finCoin: 5,
+      },
+      {
+        id: 'm004_o2',
+        text: 'Сравнить предложения, посчитать переплату и проверить, потянешь ли платёж',
+        isCorrect: true,
+        explanation: 'Перед кредитом всегда нужно оценить полную стоимость и свою нагрузку.',
+        xp: 60,
+        finCoin: 35,
+      },
+      {
+        id: 'm004_o3',
+        text: 'Взять максимальную сумму, которую одобрят',
+        isCorrect: false,
+        explanation: 'Одобренная сумма не означает, что она безопасна для бюджета.',
+        xp: 10,
+        finCoin: 5,
+      },
+    ],
   },
 ];
 
@@ -75,7 +187,7 @@ const getDifficultyStyles = (difficulty: Mission['difficulty']) => {
   }
 };
 
-export default function MissionsScreen() {
+export default function MissionsScreen({ navigation }: Props) {
   const renderMission = ({ item }: { item: Mission }) => {
     const difficultyStyle = getDifficultyStyles(item.difficulty);
 
@@ -86,7 +198,11 @@ export default function MissionsScreen() {
             <Text style={styles.cardTitle}>{item.title}</Text>
             <View style={styles.typeRow}>
               <MaterialCommunityIcons
-                name={item.type === 'quiz' ? 'file-question-outline' : 'swap-horizontal-bold'}
+                name={
+                  item.type === 'quiz'
+                    ? 'file-question-outline'
+                    : 'swap-horizontal-bold'
+                }
                 size={16}
                 color={colors.primary}
               />
@@ -102,7 +218,9 @@ export default function MissionsScreen() {
               { backgroundColor: difficultyStyle.backgroundColor },
             ]}
           >
-            <Text style={[styles.badgeText, { color: difficultyStyle.textColor }]}>
+            <Text
+              style={[styles.badgeText, { color: difficultyStyle.textColor }]}
+            >
               {item.difficulty}
             </Text>
           </View>
@@ -118,11 +236,17 @@ export default function MissionsScreen() {
 
           <View style={styles.rewardCapsule}>
             <Ionicons name="logo-usd" size={16} color="#D9A520" />
-            <Text style={styles.rewardCapsuleText}>{item.finCoinReward} FinCoin</Text>
+            <Text style={styles.rewardCapsuleText}>
+              {item.finCoinReward} FinCoin
+            </Text>
           </View>
         </View>
 
-        <TouchableOpacity style={styles.startButton} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={styles.startButton}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('MissionDetails', { mission: item })}
+        >
           <Text style={styles.startButtonText}>Начать</Text>
         </TouchableOpacity>
       </TouchableOpacity>

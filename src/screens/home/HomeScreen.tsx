@@ -14,9 +14,7 @@ export default function HomeScreen({ navigation }: Props) {
 
         <View style={styles.coinSection}>
           <Text style={styles.sparkleLeft}>✦</Text>
-
           <View style={styles.coinShadow} />
-
           <View style={styles.coinOuter}>
             <View style={styles.coinMiddle}>
               <View style={styles.coinInner}>
@@ -24,7 +22,6 @@ export default function HomeScreen({ navigation }: Props) {
               </View>
             </View>
           </View>
-
           <Text style={styles.sparkleRight}>✦</Text>
         </View>
 
@@ -36,7 +33,7 @@ export default function HomeScreen({ navigation }: Props) {
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => navigation.navigate('Missions')}
+          onPress={() => navigation.navigate('MissionsTab')}
           activeOpacity={0.85}
         >
           <Text style={styles.buttonText}>Миссии</Text>
