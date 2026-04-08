@@ -44,7 +44,7 @@ export default function HomeScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('Life')}
           activeOpacity={0.85}
         >
-          <Text style={styles.buttonText}>Играть</Text>
+          <Text style={styles.buttonText}>Режим жизнь</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
