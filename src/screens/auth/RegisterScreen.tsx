@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -9,18 +10,49 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
+import { registerWithEmail } from '../../services/auth';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Register'> & {
-  onRegisterSuccess: () => void;
-};
+type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
-export default function RegisterScreen({
-  navigation,
-  onRegisterSuccess,
-}: Props) {
+export default function RegisterScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName || !trimmedEmail || !password) {
+      Alert.alert('Ошибка', 'Заполни имя, email и пароль.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Ошибка', 'Пароль должен быть не короче 6 символов.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await registerWithEmail(trimmedName, trimmedEmail, password);
+    } catch (error: any) {
+      let message = 'Не удалось зарегистрироваться. Попробуй ещё раз.';
+
+      if (error?.code === 'auth/email-already-in-use') {
+        message = 'Этот email уже используется.';
+      } else if (error?.code === 'auth/invalid-email') {
+        message = 'Неверный формат email.';
+      } else if (error?.code === 'auth/weak-password') {
+        message = 'Слишком слабый пароль.';
+      }
+
+      Alert.alert('Ошибка регистрации', message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -29,13 +61,14 @@ export default function RegisterScreen({
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           activeOpacity={0.85}
+          disabled={loading}
         >
           <Text style={styles.backButtonText}>← Назад</Text>
         </TouchableOpacity>
 
         <Text style={styles.title}>Регистрация</Text>
         <Text style={styles.subtitle}>
-          Создай аккаунт, чтобы сохранять прогресс и развивать персонажа
+          Создай аккаунт, чтобы начать играть и развивать персонажа
         </Text>
 
         <View style={styles.form}>
@@ -45,6 +78,7 @@ export default function RegisterScreen({
             placeholderTextColor="#80908B"
             value={name}
             onChangeText={setName}
+            editable={!loading}
           />
 
           <TextInput
@@ -55,6 +89,7 @@ export default function RegisterScreen({
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            editable={!loading}
           />
 
           <TextInput
@@ -64,20 +99,25 @@ export default function RegisterScreen({
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            editable={!loading}
           />
 
           <TouchableOpacity
-            style={styles.button}
-            onPress={onRegisterSuccess}
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleRegister}
             activeOpacity={0.85}
+            disabled={loading}
           >
-            <Text style={styles.buttonText}>Зарегистрироваться</Text>
+            <Text style={styles.buttonText}>
+              {loading ? 'Загрузка...' : 'Зарегистрироваться'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
           onPress={() => navigation.navigate('Login')}
           activeOpacity={0.85}
+          disabled={loading}
         >
           <Text style={styles.linkText}>Уже есть аккаунт? Войти</Text>
         </TouchableOpacity>
@@ -137,6 +177,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingVertical: 18,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     fontSize: 22,

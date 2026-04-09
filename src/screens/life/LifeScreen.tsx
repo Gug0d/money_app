@@ -13,8 +13,23 @@ import {
   FontAwesome5,
 } from '@expo/vector-icons';
 import colors from '../../constants/colors';
+import { useGame } from '../../store/GameContext';
 
 export default function LifeScreen() {
+  const { level, xp, finCoin, currentLevelXp, nextLevelXp, progressToNextLevel } =
+    useGame();
+
+  const nextGoalText =
+    level === 1
+      ? 'Пройди ещё 2 миссии, чтобы открыть возможность устроиться на работу.'
+      : level === 2
+      ? 'Продолжай выполнять миссии, чтобы улучшить финансовые навыки персонажа.'
+      : level === 3
+      ? 'Осталось немного до нового уровня и более сложных жизненных решений.'
+      : 'Ты хорошо развиваешь персонажа. Продолжай открывать новые возможности.';
+
+  const progressPercent = Math.round(progressToNextLevel * 100);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -29,7 +44,11 @@ export default function LifeScreen() {
           <Text style={styles.logo}>Finity</Text>
 
           <TouchableOpacity style={styles.iconButton} activeOpacity={0.85}>
-            <Ionicons name="settings-sharp" size={26} color={colors.primaryDark} />
+            <Ionicons
+              name="settings-sharp"
+              size={26}
+              color={colors.primaryDark}
+            />
           </TouchableOpacity>
         </View>
 
@@ -42,35 +61,58 @@ export default function LifeScreen() {
           <View style={styles.pathOne} />
           <View style={styles.pathTwo} />
 
-          <TouchableOpacity style={[styles.mapNode, styles.nodeHome]} activeOpacity={0.88}>
+          <TouchableOpacity
+            style={[styles.mapNode, styles.nodeHome]}
+            activeOpacity={0.88}
+          >
             <View style={styles.nodeIconCircle}>
               <Ionicons name="home" size={26} color="#FFFFFF" />
             </View>
             <Text style={styles.nodeLabelLeft}>Дом</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.mapNode, styles.nodeChallenges]} activeOpacity={0.88}>
+          <TouchableOpacity
+            style={[styles.mapNode, styles.nodeChallenges]}
+            activeOpacity={0.88}
+          >
             <View style={styles.nodeIconCircle}>
-              <Ionicons name="checkmark-done-circle" size={26} color="#FFFFFF" />
+              <Ionicons
+                name="checkmark-done-circle"
+                size={26}
+                color="#FFFFFF"
+              />
             </View>
             <Text style={styles.nodeLabelRight}>Челленджи</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.mapNode, styles.nodeAdvice]} activeOpacity={0.88}>
+          <TouchableOpacity
+            style={[styles.mapNode, styles.nodeAdvice]}
+            activeOpacity={0.88}
+          >
             <View style={styles.nodeIconCircle}>
-              <MaterialCommunityIcons name="note-text-outline" size={26} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="note-text-outline"
+                size={26}
+                color="#FFFFFF"
+              />
             </View>
             <Text style={styles.nodeLabelRight}>Советы</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.mapNode, styles.nodeBank]} activeOpacity={0.88}>
+          <TouchableOpacity
+            style={[styles.mapNode, styles.nodeBank]}
+            activeOpacity={0.88}
+          >
             <View style={styles.nodeIconCircle}>
               <Ionicons name="business" size={26} color="#FFFFFF" />
             </View>
             <Text style={styles.nodeLabelLeft}>Банк</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.mapNode, styles.nodeFinance]} activeOpacity={0.88}>
+          <TouchableOpacity
+            style={[styles.mapNode, styles.nodeFinance]}
+            activeOpacity={0.88}
+          >
             <View style={styles.nodeIconCircle}>
               <FontAwesome5 name="hashtag" size={20} color="#FFFFFF" />
             </View>
@@ -104,25 +146,44 @@ export default function LifeScreen() {
           <View style={styles.progressRow}>
             <View style={styles.progressItem}>
               <Text style={styles.progressLabel}>Уровень</Text>
-              <Text style={styles.progressValue}>2</Text>
+              <Text style={styles.progressValue}>{level}</Text>
             </View>
 
             <View style={styles.progressItem}>
               <Text style={styles.progressLabel}>Опыт</Text>
-              <Text style={styles.progressValue}>95 XP</Text>
+              <Text style={styles.progressValue}>{xp} XP</Text>
             </View>
 
             <View style={styles.progressItem}>
               <Text style={styles.progressLabel}>Монеты</Text>
-              <Text style={styles.progressValue}>40</Text>
+              <Text style={styles.progressValue}>{finCoin}</Text>
+            </View>
+          </View>
+
+          <View style={styles.levelProgressCard}>
+            <View style={styles.levelProgressHeader}>
+              <Text style={styles.levelProgressTitle}>Прогресс до следующего уровня</Text>
+              <Text style={styles.levelProgressPercent}>{progressPercent}%</Text>
+            </View>
+
+            <View style={styles.progressBarBackground}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${progressPercent}%` },
+                ]}
+              />
+            </View>
+
+            <View style={styles.progressMarksRow}>
+              <Text style={styles.progressMarkText}>{currentLevelXp} XP</Text>
+              <Text style={styles.progressMarkText}>{nextLevelXp} XP</Text>
             </View>
           </View>
 
           <View style={styles.goalBox}>
             <Text style={styles.goalTitle}>Следующая цель</Text>
-            <Text style={styles.goalText}>
-              Пройди ещё 2 миссии, чтобы открыть возможность устроиться на работу.
-            </Text>
+            <Text style={styles.goalText}>{nextGoalText}</Text>
           </View>
         </View>
 
@@ -131,16 +192,26 @@ export default function LifeScreen() {
         </TouchableOpacity>
 
         <View style={styles.bottomActions}>
-          <TouchableOpacity style={styles.bottomActionCard} activeOpacity={0.88}>
+          <TouchableOpacity
+            style={styles.bottomActionCard}
+            activeOpacity={0.88}
+          >
             <View style={styles.bottomActionIcon}>
               <Ionicons name="person" size={24} color={colors.primaryDark} />
             </View>
             <Text style={styles.bottomActionText}>Персонаж</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.bottomActionCard} activeOpacity={0.88}>
+          <TouchableOpacity
+            style={styles.bottomActionCard}
+            activeOpacity={0.88}
+          >
             <View style={styles.bottomActionIcon}>
-              <Ionicons name="chatbubble-ellipses" size={24} color={colors.primaryDark} />
+              <Ionicons
+                name="chatbubble-ellipses"
+                size={24}
+                color={colors.primaryDark}
+              />
             </View>
             <Text style={styles.bottomActionText}>Диалоги</Text>
           </TouchableOpacity>
@@ -468,6 +539,55 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.primaryDark,
   },
+
+  levelProgressCard: {
+    backgroundColor: '#F8FBFA',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E4EEEB',
+    marginBottom: 14,
+  },
+  levelProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 12,
+  },
+  levelProgressTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textDark,
+  },
+  levelProgressPercent: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: colors.primary,
+  },
+  progressBarBackground: {
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: '#DDEAE5',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+  },
+  progressMarksRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressMarkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6D7B77',
+  },
+
   goalBox: {
     backgroundColor: '#FFF7DE',
     borderRadius: 18,

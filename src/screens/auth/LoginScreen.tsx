@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -9,14 +10,46 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
+import { loginWithEmail } from '../../services/auth';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Login'> & {
-  onLoginSuccess: () => void;
-};
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
-export default function LoginScreen({ navigation, onLoginSuccess }: Props) {
+export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
+      Alert.alert('Ошибка', 'Введи email и пароль.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await loginWithEmail(trimmedEmail, password);
+    } catch (error: any) {
+      let message = 'Не удалось войти. Попробуй ещё раз.';
+
+      if (error?.code === 'auth/invalid-email') {
+        message = 'Неверный формат email.';
+      } else if (
+        error?.code === 'auth/invalid-credential' ||
+        error?.code === 'auth/user-not-found' ||
+        error?.code === 'auth/wrong-password'
+      ) {
+        message = 'Неверный email или пароль.';
+      } else if (error?.code === 'auth/too-many-requests') {
+        message = 'Слишком много попыток входа. Попробуй позже.';
+      }
+
+      Alert.alert('Ошибка входа', message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -25,6 +58,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }: Props) {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           activeOpacity={0.85}
+          disabled={loading}
         >
           <Text style={styles.backButtonText}>← Назад</Text>
         </TouchableOpacity>
@@ -43,6 +77,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }: Props) {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            editable={!loading}
           />
 
           <TextInput
@@ -52,20 +87,25 @@ export default function LoginScreen({ navigation, onLoginSuccess }: Props) {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            editable={!loading}
           />
 
           <TouchableOpacity
-            style={styles.button}
-            onPress={onLoginSuccess}
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
             activeOpacity={0.85}
+            disabled={loading}
           >
-            <Text style={styles.buttonText}>Войти</Text>
+            <Text style={styles.buttonText}>
+              {loading ? 'Загрузка...' : 'Войти'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
           onPress={() => navigation.navigate('Register')}
           activeOpacity={0.85}
+          disabled={loading}
         >
           <Text style={styles.linkText}>Нет аккаунта? Зарегистрироваться</Text>
         </TouchableOpacity>
@@ -125,6 +165,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingVertical: 18,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     fontSize: 22,

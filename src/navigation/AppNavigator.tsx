@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   NavigationContainer,
   NavigatorScreenParams,
@@ -6,6 +6,7 @@ import {
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import MissionsScreen from '../screens/missions/MissionsScreen';
@@ -19,6 +20,8 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+
+import { auth } from '../services/firebase';
 
 export type RootTabParamList = {
   Life: undefined;
@@ -132,71 +135,40 @@ function MainTabs() {
   );
 }
 
-type WelcomeExtraProps = {
-  onLoginSuccess: () => void;
-};
-
-type LoginExtraProps = {
-  onLoginSuccess: () => void;
-};
-
-type RegisterExtraProps = {
-  onRegisterSuccess: () => void;
-};
-
-function AuthNavigator({
-  onLoginSuccess,
-}: {
-  onLoginSuccess: () => void;
-}) {
+function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen name="Welcome">
-        {(props) => (
-          <WelcomeScreen
-            {...props}
-            onLoginSuccess={onLoginSuccess}
-          />
-        )}
-      </AuthStack.Screen>
-
-      <AuthStack.Screen name="Login">
-        {(props) => (
-          <LoginScreen
-            {...props}
-            onLoginSuccess={onLoginSuccess}
-          />
-        )}
-      </AuthStack.Screen>
-
-      <AuthStack.Screen name="Register">
-        {(props) => (
-          <RegisterScreen
-            {...props}
-            onRegisterSuccess={onLoginSuccess}
-          />
-        )}
-      </AuthStack.Screen>
+      <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>
   );
 }
 
 export default function AppNavigator() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  const handleAuthSuccess = () => {
-    setIsAuthenticated(true);
-  };
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  if (authLoading) {
+    return null;
+  }
 
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
+        {user ? (
           <RootStack.Screen name="Main" component={MainTabs} />
         ) : (
-          <RootStack.Screen name="Auth">
-            {() => <AuthNavigator onLoginSuccess={handleAuthSuccess} />}
-          </RootStack.Screen>
+          <RootStack.Screen name="Auth" component={AuthNavigator} />
         )}
       </RootStack.Navigator>
     </NavigationContainer>

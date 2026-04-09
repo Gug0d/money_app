@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { Mission } from '../../types/Mission';
+import { useGame } from '../../store/GameContext';
 
 export type MissionsStackParamList = {
   MissionsList: undefined;
@@ -22,6 +23,8 @@ type Props = NativeStackScreenProps<MissionsStackParamList, 'MissionDetails'>;
 
 export default function MissionDetailsScreen({ route, navigation }: Props) {
   const { mission } = route.params;
+  const { xp: currentXp, level, addRewards, getLevelByXp } = useGame();
+
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
@@ -40,15 +43,39 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
   };
 
   const handleFinish = () => {
-    const xp = selectedOption?.xp ?? mission.xpReward;
-    const finCoin = selectedOption?.finCoin ?? mission.finCoinReward;
+    const rewardXp = selectedOption?.xp ?? mission.xpReward;
+    const rewardFinCoin = selectedOption?.finCoin ?? mission.finCoinReward;
+
+    const nextXp = currentXp + rewardXp;
+    const nextLevel = getLevelByXp(nextXp);
+    const levelUp = nextLevel > level;
+
+    addRewards(rewardXp, rewardFinCoin);
+
+    if (levelUp) {
+      Alert.alert(
+        'Новый уровень!',
+        `Поздравляем! Ты достиг уровня ${nextLevel}.\n\nНаграда за миссию: ${rewardXp} XP и ${rewardFinCoin} FinCoin.`,
+        [
+          {
+            text: 'Отлично',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+      return;
+    }
 
     Alert.alert(
       'Миссия завершена',
-      `Ты получил ${xp} XP и ${finCoin} FinCoin.`
+      `Ты получил ${rewardXp} XP и ${rewardFinCoin} FinCoin.`,
+      [
+        {
+          text: 'Продолжить',
+          onPress: () => navigation.goBack(),
+        },
+      ]
     );
-
-    navigation.goBack();
   };
 
   return (
