@@ -5,8 +5,15 @@ import {
 } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  ActivityIndicator,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import MissionsScreen from '../screens/missions/MissionsScreen';
@@ -20,8 +27,9 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 
 export type RootTabParamList = {
   Life: undefined;
@@ -39,6 +47,7 @@ export type AuthStackParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
+  Onboarding: undefined;
   Main: undefined;
 };
 
@@ -46,6 +55,15 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 const MissionsStack = createNativeStackNavigator<MissionsStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+
+function LoadingScreen() {
+  return (
+    <SafeAreaView style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#0A6A61" />
+      <Text style={styles.loadingText}>Загрузка...</Text>
+    </SafeAreaView>
+  );
+}
 
 function MissionsNavigator() {
   return (
@@ -59,7 +77,13 @@ function MissionsNavigator() {
   );
 }
 
-function MainTabs() {
+function MainTabs({
+  guestMode,
+  exitGuestMode,
+}: {
+  guestMode: boolean;
+  exitGuestMode: () => void;
+}) {
   return (
     <Tab.Navigator
       initialRouteName="Home"
@@ -126,19 +150,24 @@ function MainTabs() {
         component={AdvisorScreen}
         options={{ title: 'Советы' }}
       />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Профиль' }}
-      />
+      <Tab.Screen name="Profile" options={{ title: 'Профиль' }}>
+        {() => (
+          <ProfileScreen
+            guestMode={guestMode}
+            exitGuestMode={exitGuestMode}
+          />
+        )}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 }
 
-function AuthNavigator() {
+function AuthNavigator({ onGuestLogin }: { onGuestLogin: () => void }) {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
+      <AuthStack.Screen name="Welcome">
+        {(props) => <WelcomeScreen {...props} onGuestLogin={onGuestLogin} />}
+      </AuthStack.Screen>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>
@@ -148,29 +177,105 @@ function AuthNavigator() {
 export default function AppNavigator() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [userDocLoading, setUserDocLoading] = useState(true);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    let unsubscribeUserDoc: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
+
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+        unsubscribeUserDoc = undefined;
+      }
+
+      if (!firebaseUser) {
+        setOnboardingCompleted(false);
+        setAuthLoading(false);
+        setUserDocLoading(false);
+        return;
+      }
+
       setAuthLoading(false);
+      setUserDocLoading(true);
+
+      unsubscribeUserDoc = onSnapshot(
+        doc(db, 'users', firebaseUser.uid),
+        (userDoc) => {
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setOnboardingCompleted(!!userData.onboardingCompleted);
+          } else {
+            setOnboardingCompleted(false);
+          }
+          setUserDocLoading(false);
+        },
+        () => {
+          setOnboardingCompleted(false);
+          setUserDocLoading(false);
+        }
+      );
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+      }
+    };
   }, []);
 
-  if (authLoading) {
-    return null;
+  if (authLoading || (!guestMode && user && userDocLoading)) {
+    return <LoadingScreen />;
   }
 
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
-          <RootStack.Screen name="Main" component={MainTabs} />
+        {guestMode ? (
+          <RootStack.Screen name="Main">
+            {() => (
+              <MainTabs
+                guestMode={guestMode}
+                exitGuestMode={() => setGuestMode(false)}
+              />
+            )}
+          </RootStack.Screen>
+        ) : !user ? (
+          <RootStack.Screen name="Auth">
+            {() => <AuthNavigator onGuestLogin={() => setGuestMode(true)} />}
+          </RootStack.Screen>
+        ) : !onboardingCompleted ? (
+          <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
-          <RootStack.Screen name="Auth" component={AuthNavigator} />
+          <RootStack.Screen name="Main">
+            {() => (
+              <MainTabs
+                guestMode={guestMode}
+                exitGuestMode={() => setGuestMode(false)}
+              />
+            )}
+          </RootStack.Screen>
         )}
       </RootStack.Navigator>
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#F7F1E4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 14,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0A6A61',
+  },
+});

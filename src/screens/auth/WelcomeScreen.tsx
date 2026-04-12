@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -9,27 +8,12 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
-import { loginAsGuest } from '../../services/auth';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'> & {
+  onGuestLogin: () => void;
+};
 
-export default function WelcomeScreen({ navigation }: Props) {
-  const [loading, setLoading] = useState(false);
-
-  const handleGuestLogin = async () => {
-    try {
-      setLoading(true);
-      await loginAsGuest();
-    } catch (error: any) {
-      Alert.alert(
-        'Ошибка',
-        'Не удалось войти как гость. Проверь, включена ли анонимная авторизация в Firebase.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export default function WelcomeScreen({ navigation, onGuestLogin }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -49,7 +33,6 @@ export default function WelcomeScreen({ navigation }: Props) {
           style={styles.button}
           onPress={() => navigation.navigate('Login')}
           activeOpacity={0.85}
-          disabled={loading}
         >
           <Text style={styles.buttonText}>Войти</Text>
         </TouchableOpacity>
@@ -58,20 +41,16 @@ export default function WelcomeScreen({ navigation }: Props) {
           style={[styles.button, styles.secondaryButton]}
           onPress={() => navigation.navigate('Register')}
           activeOpacity={0.85}
-          disabled={loading}
         >
           <Text style={styles.secondaryButtonText}>Зарегистрироваться</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.guestButton}
-          onPress={handleGuestLogin}
+          onPress={onGuestLogin}
           activeOpacity={0.85}
-          disabled={loading}
         >
-          <Text style={styles.guestButtonText}>
-            {loading ? 'Загрузка...' : 'Войти как гость'}
-          </Text>
+          <Text style={styles.guestButtonText}>Войти как гость</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -140,9 +119,9 @@ const styles = StyleSheet.create({
     color: '#0A4F4A',
   },
   guestButton: {
-    marginTop: 6,
+    marginTop: 4,
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   guestButtonText: {
     fontSize: 18,
@@ -150,4 +129,4 @@ const styles = StyleSheet.create({
     color: '#F7F1E4',
     textDecorationLine: 'underline',
   },
-}); 
+});

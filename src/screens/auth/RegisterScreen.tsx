@@ -18,19 +18,25 @@ export default function RegisterScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
 
-    if (!trimmedName || !trimmedEmail || !password) {
-      Alert.alert('Ошибка', 'Заполни имя, email и пароль.');
+    if (!trimmedName || !trimmedEmail || !password || !confirmPassword) {
+      Alert.alert('Ошибка', 'Заполни все поля.');
       return;
     }
 
     if (password.length < 6) {
       Alert.alert('Ошибка', 'Пароль должен быть не короче 6 символов.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Ошибка', 'Пароли не совпадают.');
       return;
     }
 
@@ -98,6 +104,16 @@ export default function RegisterScreen({ navigation }: Props) {
             placeholderTextColor="#80908B"
             value={password}
             onChangeText={setPassword}
+            secureTextEntry
+            editable={!loading}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Повторите пароль"
+            placeholderTextColor="#80908B"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
             secureTextEntry
             editable={!loading}
           />

@@ -1,5 +1,7 @@
 import React from 'react';
 import {
+  Alert,
+  ActivityIndicator,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -15,20 +17,89 @@ import {
 import colors from '../../constants/colors';
 import { useGame } from '../../store/GameContext';
 
+const ACCELERATION_SECONDS = 15;
+const ACCELERATION_COST = 20;
+
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
 export default function LifeScreen() {
-  const { level, xp, finCoin, currentLevelXp, nextLevelXp, progressToNextLevel } =
-    useGame();
+  const {
+    level,
+    xp,
+    finCoin,
+    currentLevelXp,
+    nextLevelXp,
+    progressToNextLevel,
+    mortgage,
+    mortgageStatus,
+    isGameLoading,
+    addTestXp,
+    addTestCoins,
+    startMortgage,
+    reduceMortgageTime,
+  } = useGame();
 
   const nextGoalText =
     level === 1
-      ? 'Пройди ещё 2 миссии, чтобы открыть возможность устроиться на работу.'
+      ? 'Пройди ещё миссии, чтобы открыть финансовые инструменты.'
       : level === 2
-      ? 'Продолжай выполнять миссии, чтобы улучшить финансовые навыки персонажа.'
+      ? 'Достигни 3 уровня, чтобы открыть ипотеку.'
       : level === 3
-      ? 'Осталось немного до нового уровня и более сложных жизненных решений.'
-      : 'Ты хорошо развиваешь персонажа. Продолжай открывать новые возможности.';
+      ? 'Теперь тебе доступна ипотека. Управляй временем и фин коинами с умом.'
+      : 'Продолжай развивать персонажа и открывай новые финансовые возможности.';
 
   const progressPercent = Math.round(progressToNextLevel * 100);
+
+  const handleStartMortgage = async () => {
+    const success = await startMortgage();
+
+    if (!success) {
+      Alert.alert('Ипотека недоступна', 'Сначала достигни 3 уровня.');
+      return;
+    }
+
+    Alert.alert(
+      'Ипотека оформлена',
+      'Теперь нужно дождаться её закрытия или ускорить процесс за фин коины.'
+    );
+  };
+
+  const handleReduceTime = async () => {
+    const success = await reduceMortgageTime(
+      ACCELERATION_SECONDS,
+      ACCELERATION_COST
+    );
+
+    if (!success) {
+      Alert.alert(
+        'Не удалось ускорить',
+        'Проверь, активна ли ипотека и хватает ли фин коинов.'
+      );
+    }
+  };
+
+  const mortgageProgress =
+    mortgage.totalSeconds > 0
+      ? Math.round(
+          ((mortgage.totalSeconds - mortgage.remainingSeconds) /
+            mortgage.totalSeconds) *
+            100
+        )
+      : 0;
+
+  if (isGameLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Загрузка игрового прогресса...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -57,7 +128,6 @@ export default function LifeScreen() {
           <View style={styles.backgroundCloudTwo} />
           <View style={styles.backgroundHillLeft} />
           <View style={styles.backgroundHillRight} />
-
           <View style={styles.pathOne} />
           <View style={styles.pathTwo} />
 
@@ -121,7 +191,6 @@ export default function LifeScreen() {
 
           <View style={styles.characterWrap}>
             <View style={styles.characterShadow} />
-
             <View style={styles.characterHead} />
             <View style={styles.characterBody} />
             <View style={styles.characterLeftArm} />
@@ -162,7 +231,9 @@ export default function LifeScreen() {
 
           <View style={styles.levelProgressCard}>
             <View style={styles.levelProgressHeader}>
-              <Text style={styles.levelProgressTitle}>Прогресс до следующего уровня</Text>
+              <Text style={styles.levelProgressTitle}>
+                Прогресс до следующего уровня
+              </Text>
               <Text style={styles.levelProgressPercent}>{progressPercent}%</Text>
             </View>
 
@@ -187,34 +258,102 @@ export default function LifeScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.playButton} activeOpacity={0.88}>
-          <Text style={styles.playButtonText}>ИГРАТЬ</Text>
-        </TouchableOpacity>
+        <View style={styles.debugCard}>
+          <Text style={styles.debugTitle}>Тестирование</Text>
 
-        <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={styles.bottomActionCard}
-            activeOpacity={0.88}
-          >
-            <View style={styles.bottomActionIcon}>
-              <Ionicons name="person" size={24} color={colors.primaryDark} />
-            </View>
-            <Text style={styles.bottomActionText}>Персонаж</Text>
-          </TouchableOpacity>
+          <View style={styles.debugButtonsRow}>
+            <TouchableOpacity
+              style={styles.debugButton}
+              activeOpacity={0.88}
+              onPress={addTestXp}
+            >
+              <Text style={styles.debugButtonText}>+100 XP</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.bottomActionCard}
-            activeOpacity={0.88}
-          >
-            <View style={styles.bottomActionIcon}>
-              <Ionicons
-                name="chatbubble-ellipses"
-                size={24}
-                color={colors.primaryDark}
-              />
-            </View>
-            <Text style={styles.bottomActionText}>Диалоги</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.debugButton}
+              activeOpacity={0.88}
+              onPress={addTestCoins}
+            >
+              <Text style={styles.debugButtonText}>+50 монет</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.mortgageCard}>
+          <View style={styles.mortgageHeader}>
+            <Text style={styles.mortgageTitle}>Ипотека</Text>
+            <Text style={styles.mortgageStatus}>
+              {mortgageStatus === 'locked'
+                ? 'Закрыто'
+                : mortgageStatus === 'available'
+                ? 'Доступно'
+                : mortgageStatus === 'active'
+                ? 'Активна'
+                : 'Закрыта'}
+            </Text>
+          </View>
+
+          {mortgageStatus === 'locked' && (
+            <Text style={styles.mortgageText}>
+              Ипотека откроется на 3 уровне. Продолжай выполнять миссии и получать опыт.
+            </Text>
+          )}
+
+          {mortgageStatus === 'available' && (
+            <>
+              <Text style={styles.mortgageText}>
+                Ты открыл возможность взять ипотеку. После оформления начнётся отсчёт времени до её закрытия.
+              </Text>
+
+              <TouchableOpacity
+                style={styles.mortgageButton}
+                activeOpacity={0.88}
+                onPress={handleStartMortgage}
+              >
+                <Text style={styles.mortgageButtonText}>Взять ипотеку</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {mortgageStatus === 'active' && (
+            <>
+              <Text style={styles.mortgageText}>
+                Ипотека оформлена. Осталось времени до закрытия:
+              </Text>
+
+              <Text style={styles.timerValue}>
+                {formatTime(mortgage.remainingSeconds)}
+              </Text>
+
+              <View style={styles.progressBarBackground}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${mortgageProgress}%` },
+                  ]}
+                />
+              </View>
+
+              <Text style={styles.accelerationText}>
+                Ускорить на {ACCELERATION_SECONDS} сек. за {ACCELERATION_COST} фин коинов
+              </Text>
+
+              <TouchableOpacity
+                style={styles.mortgageButton}
+                activeOpacity={0.88}
+                onPress={handleReduceTime}
+              >
+                <Text style={styles.mortgageButtonText}>Ускорить</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {mortgageStatus === 'completed' && (
+            <Text style={styles.mortgageSuccessText}>
+              Поздравляем! Ипотека закрыта. Ты успешно прошёл первый крупный финансовый этап.
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -227,6 +366,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F7F1E4',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#F7F1E4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    textAlign: 'center',
   },
   content: {
     paddingHorizontal: 18,
@@ -270,7 +423,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 20,
   },
-
   backgroundCloudOne: {
     position: 'absolute',
     top: 92,
@@ -309,7 +461,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#5AA88E',
     opacity: 0.18,
   },
-
   pathOne: {
     position: 'absolute',
     left: 110,
@@ -336,7 +487,6 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-14deg' }],
     opacity: 0.8,
   },
-
   mapNode: {
     position: 'absolute',
     alignItems: 'center',
@@ -394,7 +544,6 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     textAlign: 'center',
   },
-
   characterWrap: {
     position: 'absolute',
     left: '50%',
@@ -468,7 +617,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#07574A',
     transform: [{ rotate: '-4deg' }],
   },
-
   characterInfoCard: {
     position: 'absolute',
     bottom: -2,
@@ -500,7 +648,6 @@ const styles = StyleSheet.create({
     color: '#556460',
     textAlign: 'center',
   },
-
   progressCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
@@ -539,7 +686,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.primaryDark,
   },
-
   levelProgressCard: {
     backgroundColor: '#F8FBFA',
     borderRadius: 18,
@@ -587,7 +733,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6D7B77',
   },
-
   goalBox: {
     backgroundColor: '#FFF7DE',
     borderRadius: 18,
@@ -606,54 +751,95 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#31433F',
   },
-
-  playButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 28,
-    paddingVertical: 20,
-    alignItems: 'center',
-    marginBottom: 18,
-    shadowColor: '#D9A520',
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    elevation: 3,
-  },
-  playButtonText: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.primaryDark,
-    letterSpacing: 1,
-  },
-
-  bottomActions: {
-    flexDirection: 'row',
-    gap: 14,
-  },
-  bottomActionCard: {
-    flex: 1,
+  debugCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    paddingVertical: 18,
-    alignItems: 'center',
+    borderRadius: 24,
+    padding: 18,
     borderWidth: 1,
     borderColor: '#EFE7D6',
+    marginBottom: 18,
   },
-  bottomActionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F2F5E9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  bottomActionText: {
-    fontSize: 18,
-    fontWeight: '800',
+  debugTitle: {
+    fontSize: 22,
+    fontWeight: '900',
     color: colors.primaryDark,
+    marginBottom: 12,
+  },
+  debugButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  debugButton: {
+    flex: 1,
+    backgroundColor: '#EAF6F3',
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  debugButtonText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: colors.primaryDark,
+  },
+  mortgageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#EFE7D6',
+    marginBottom: 18,
+  },
+  mortgageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  mortgageTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: colors.primaryDark,
+  },
+  mortgageStatus: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.primary,
+  },
+  mortgageText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#31433F',
+    marginBottom: 14,
+  },
+  timerValue: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: colors.primaryDark,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  accelerationText: {
+    fontSize: 14,
+    color: '#5D6D68',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  mortgageButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  mortgageButtonText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: colors.primaryDark,
+  },
+  mortgageSuccessText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#2E7D32',
+    fontWeight: '800',
   },
 });
