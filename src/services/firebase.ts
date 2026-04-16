@@ -1,6 +1,9 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  getFirestore,
+  initializeFirestore,
+} from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAkOO0jeqriQbPUVznBMQUB4LoAZgZW_NY',
@@ -9,15 +12,22 @@ const firebaseConfig = {
   storageBucket: 'finityapp-98abc.firebasestorage.app',
   messagingSenderId: '260350683915',
   appId: '1:260350683915:web:c0d7d0be78dba774a4100e',
+  measurementId: 'G-LNREXVSWE2',
 };
 
-// защита от повторной инициализации
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// просто обычный auth (без RN persistence)
 export const auth = getAuth(app);
 
-// Firestore
-export const db = getFirestore(app);
+export const db = (() => {
+  try {
+    return initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: false,
+    });
+  } catch {
+    return getFirestore(app);
+  }
+})();
 
 export default app;

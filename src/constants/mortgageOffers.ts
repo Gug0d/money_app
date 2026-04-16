@@ -1,0 +1,40 @@
+import { MortgageOffer } from '../types/finance';
+
+export const mortgageOffers: MortgageOffer[] = [
+  {
+    id: 'offer_1',
+    bankName: 'Fin Bank',
+    rate: 8.4,
+    years: 20,
+    monthlyPayment: 24500,
+    totalPayment: 5880000,
+    overpayment: 1880000,
+    downPayment: 300000,
+    description: 'Ниже ежемесячный платёж, но срок длиннее.',
+    gameDurationSeconds: 120,
+  },
+  {
+    id: 'offer_2',
+    bankName: 'Capital House',
+    rate: 7.9,
+    years: 15,
+    monthlyPayment: 28900,
+    totalPayment: 5202000,
+    overpayment: 1202000,
+    downPayment: 450000,
+    description: 'Больше ежемесячный платёж, но меньше переплата.',
+    gameDurationSeconds: 90,
+  },
+  {
+    id: 'offer_3',
+    bankName: 'Start ипотека',
+    rate: 9.3,
+    years: 25,
+    monthlyPayment: 21900,
+    totalPayment: 6570000,
+    overpayment: 2570000,
+    downPayment: 200000,
+    description: 'Самый лёгкий вход, но самая большая переплата.',
+    gameDurationSeconds: 150,
+  },
+];

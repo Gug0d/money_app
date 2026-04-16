@@ -7,11 +7,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import colors from '../../constants/colors';
+import { useGame } from '../../store/GameContext';
 
-const goals = ['Научиться копить', 'Контролировать расходы', 'Разобраться с долгами'];
+const goals = [
+  'Научиться копить',
+  'Контролировать расходы',
+  'Разобраться с долгами',
+];
 const incomes = ['До 30 000 ₽', '30 000 – 70 000 ₽', '70 000 ₽+'];
 const debts = ['Нет долгов', 'Есть небольшие долги', 'Есть серьёзные долги'];
 
@@ -23,6 +28,7 @@ export default function OnboardingScreen() {
   const [loading, setLoading] = useState(false);
 
   const currentUser = auth.currentUser;
+  const { setOnboardingCompleted } = useGame();
 
   const goNext = () => {
     if (step === 0 && !goal) {
@@ -52,14 +58,20 @@ export default function OnboardingScreen() {
     try {
       setLoading(true);
 
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        onboardingCompleted: true,
-        onboarding: {
-          goal,
-          income,
-          debt,
+      await setDoc(
+        doc(db, 'users', currentUser.uid),
+        {
+          onboardingCompleted: true,
+          onboarding: {
+            goal,
+            income,
+            debt,
+          },
         },
-      });
+        { merge: true }
+      );
+
+      setOnboardingCompleted(true);
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось завершить онбординг.');
     } finally {
@@ -101,7 +113,6 @@ export default function OnboardingScreen() {
             <Text style={styles.subtitle}>
               Это поможет сделать приложение полезнее именно для тебя
             </Text>
-
             <View style={styles.optionsWrap}>
               {goals.map((item) => renderOption(item, goal, setGoal))}
             </View>
@@ -114,7 +125,6 @@ export default function OnboardingScreen() {
             <Text style={styles.subtitle}>
               Выбери вариант, который ближе всего к твоей ситуации
             </Text>
-
             <View style={styles.optionsWrap}>
               {incomes.map((item) => renderOption(item, income, setIncome))}
             </View>
@@ -127,7 +137,6 @@ export default function OnboardingScreen() {
             <Text style={styles.subtitle}>
               Это поможет подобрать более точные советы и сценарии
             </Text>
-
             <View style={styles.optionsWrap}>
               {debts.map((item) => renderOption(item, debt, setDebt))}
             </View>

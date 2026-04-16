@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import MissionsScreen from '../screens/missions/MissionsScreen';
@@ -21,6 +20,7 @@ import MissionDetailsScreen, {
   MissionsStackParamList,
 } from '../screens/missions/MissionDetailsScreen';
 import LifeScreen from '../screens/life/LifeScreen';
+import MortgageOffersScreen from '../screens/life/MortgageOffersScreen';
 import AdvisorScreen from '../screens/advisor/AdvisorScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
@@ -29,10 +29,16 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 
-import { auth, db } from '../services/firebase';
+import { auth } from '../services/firebase';
+import { useGame } from '../store/GameContext';
+
+export type LifeStackParamList = {
+  LifeMain: undefined;
+  MortgageOffers: undefined;
+};
 
 export type RootTabParamList = {
-  Life: undefined;
+  Life: NavigatorScreenParams<LifeStackParamList> | undefined;
   MissionsTab: NavigatorScreenParams<MissionsStackParamList> | undefined;
   Home: undefined;
   Advisor: undefined;
@@ -53,6 +59,7 @@ export type RootStackParamList = {
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const MissionsStack = createNativeStackNavigator<MissionsStackParamList>();
+const LifeStack = createNativeStackNavigator<LifeStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -74,6 +81,18 @@ function MissionsNavigator() {
         component={MissionDetailsScreen}
       />
     </MissionsStack.Navigator>
+  );
+}
+
+function LifeNavigator() {
+  return (
+    <LifeStack.Navigator screenOptions={{ headerShown: false }}>
+      <LifeStack.Screen name="LifeMain" component={LifeScreen} />
+      <LifeStack.Screen
+        name="MortgageOffers"
+        component={MortgageOffersScreen}
+      />
+    </LifeStack.Navigator>
   );
 }
 
@@ -132,7 +151,7 @@ function MainTabs({
     >
       <Tab.Screen
         name="Life"
-        component={LifeScreen}
+        component={LifeNavigator}
         options={{ title: 'Жизнь' }}
       />
       <Tab.Screen
@@ -177,58 +196,20 @@ function AuthNavigator({ onGuestLogin }: { onGuestLogin: () => void }) {
 export default function AppNavigator() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [userDocLoading, setUserDocLoading] = useState(true);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [guestMode, setGuestMode] = useState(false);
 
-  useEffect(() => {
-    let unsubscribeUserDoc: (() => void) | undefined;
+  const { onboardingCompleted, isGameLoading } = useGame();
 
+  useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-
-      if (unsubscribeUserDoc) {
-        unsubscribeUserDoc();
-        unsubscribeUserDoc = undefined;
-      }
-
-      if (!firebaseUser) {
-        setOnboardingCompleted(false);
-        setAuthLoading(false);
-        setUserDocLoading(false);
-        return;
-      }
-
       setAuthLoading(false);
-      setUserDocLoading(true);
-
-      unsubscribeUserDoc = onSnapshot(
-        doc(db, 'users', firebaseUser.uid),
-        (userDoc) => {
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setOnboardingCompleted(!!userData.onboardingCompleted);
-          } else {
-            setOnboardingCompleted(false);
-          }
-          setUserDocLoading(false);
-        },
-        () => {
-          setOnboardingCompleted(false);
-          setUserDocLoading(false);
-        }
-      );
     });
 
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeUserDoc) {
-        unsubscribeUserDoc();
-      }
-    };
+    return unsubscribeAuth;
   }, []);
 
-  if (authLoading || (!guestMode && user && userDocLoading)) {
+  if (authLoading || (!guestMode && user && isGameLoading)) {
     return <LoadingScreen />;
   }
 

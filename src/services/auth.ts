@@ -2,50 +2,53 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
+  updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
-// Регистрация
+const DEFAULT_MORTGAGE = {
+  isActive: false,
+  isCompleted: false,
+  totalSeconds: 120,
+  durationSeconds: 120,
+  startedAt: null,
+};
+
+// 🔐 Регистрация
 export async function registerWithEmail(
   name: string,
   email: string,
   password: string
 ) {
-  const result = await createUserWithEmailAndPassword(auth, email, password);
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-  await setDoc(doc(db, 'users', result.user.uid), {
-    uid: result.user.uid,
-    name,
-    email,
-    createdAt: serverTimestamp(),
-
-    xp: 0,
-    level: 1,
-    finCoin: 0,
-
-    mortgage: {
-      isActive: false,
-      isCompleted: false,
-      totalSeconds: 120,
-      remainingSeconds: 120,
-    },
-
-    isGuest: false,
-    onboardingCompleted: false,
-    role: 'user',
+  // сохраняем имя в Firebase Auth
+  await updateProfile(cred.user, {
+    displayName: name,
   });
 
-  return result.user;
+  // ✅ СОЗДАЁМ ДОКУМЕНТ В FIRESTORE
+  await setDoc(doc(db, 'users', cred.user.uid), {
+    name,
+    email,
+    xp: 0,
+    finCoin: 0,
+    onboardingCompleted: false, // важно
+    mortgage: DEFAULT_MORTGAGE,
+    role: 'user',
+    createdAt: Date.now(),
+  });
+
+  return cred.user;
 }
 
-// Вход
+// 🔑 Вход
 export async function loginWithEmail(email: string, password: string) {
-  const result = await signInWithEmailAndPassword(auth, email, password);
-  return result.user;
+  return signInWithEmailAndPassword(auth, email, password);
 }
 
-// Выход
+// 🚪 Выход
 export async function logout() {
-  await signOut(auth);
+  return signOut(auth);
 }

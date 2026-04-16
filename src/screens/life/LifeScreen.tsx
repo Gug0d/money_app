@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   ActivityIndicator,
   SafeAreaView,
   StyleSheet,
@@ -14,11 +13,12 @@ import {
   MaterialCommunityIcons,
   FontAwesome5,
 } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import colors from '../../constants/colors';
 import { useGame } from '../../store/GameContext';
+import { LifeStackParamList } from '../../navigation/AppNavigator';
 
-const ACCELERATION_SECONDS = 15;
-const ACCELERATION_COST = 20;
+type Props = NativeStackScreenProps<LifeStackParamList, 'LifeMain'>;
 
 function formatTime(seconds: number) {
   const mins = Math.floor(seconds / 60);
@@ -27,7 +27,7 @@ function formatTime(seconds: number) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-export default function LifeScreen() {
+export default function LifeScreen({ navigation }: Props) {
   const {
     level,
     xp,
@@ -37,12 +37,15 @@ export default function LifeScreen() {
     progressToNextLevel,
     mortgage,
     mortgageStatus,
+    mortgageRemainingSeconds,
     isGameLoading,
     addTestXp,
     addTestCoins,
-    startMortgage,
     reduceMortgageTime,
   } = useGame();
+
+  const ACCELERATION_SECONDS = 15;
+  const ACCELERATION_COST = 20;
 
   const nextGoalText =
     level === 1
@@ -50,43 +53,19 @@ export default function LifeScreen() {
       : level === 2
       ? 'Достигни 3 уровня, чтобы открыть ипотеку.'
       : level === 3
-      ? 'Теперь тебе доступна ипотека. Управляй временем и фин коинами с умом.'
+      ? 'Теперь тебе доступна ипотека. Сравни предложения и выбери лучший вариант.'
       : 'Продолжай развивать персонажа и открывай новые финансовые возможности.';
 
   const progressPercent = Math.round(progressToNextLevel * 100);
 
-  const handleStartMortgage = async () => {
-    const success = await startMortgage();
-
-    if (!success) {
-      Alert.alert('Ипотека недоступна', 'Сначала достигни 3 уровня.');
-      return;
-    }
-
-    Alert.alert(
-      'Ипотека оформлена',
-      'Теперь нужно дождаться её закрытия или ускорить процесс за фин коины.'
-    );
-  };
-
   const handleReduceTime = async () => {
-    const success = await reduceMortgageTime(
-      ACCELERATION_SECONDS,
-      ACCELERATION_COST
-    );
-
-    if (!success) {
-      Alert.alert(
-        'Не удалось ускорить',
-        'Проверь, активна ли ипотека и хватает ли фин коинов.'
-      );
-    }
+    await reduceMortgageTime(ACCELERATION_SECONDS, ACCELERATION_COST);
   };
 
   const mortgageProgress =
     mortgage.totalSeconds > 0
       ? Math.round(
-          ((mortgage.totalSeconds - mortgage.remainingSeconds) /
+          ((mortgage.totalSeconds - mortgageRemainingSeconds) /
             mortgage.totalSeconds) *
             100
         )
@@ -265,7 +244,7 @@ export default function LifeScreen() {
             <TouchableOpacity
               style={styles.debugButton}
               activeOpacity={0.88}
-              onPress={addTestXp}
+              onPress={() => addTestXp(100)}
             >
               <Text style={styles.debugButtonText}>+100 XP</Text>
             </TouchableOpacity>
@@ -273,7 +252,7 @@ export default function LifeScreen() {
             <TouchableOpacity
               style={styles.debugButton}
               activeOpacity={0.88}
-              onPress={addTestCoins}
+              onPress={() => addTestCoins(50)}
             >
               <Text style={styles.debugButtonText}>+50 монет</Text>
             </TouchableOpacity>
@@ -303,15 +282,17 @@ export default function LifeScreen() {
           {mortgageStatus === 'available' && (
             <>
               <Text style={styles.mortgageText}>
-                Ты открыл возможность взять ипотеку. После оформления начнётся отсчёт времени до её закрытия.
+                Ты открыл возможность выбрать ипотечное предложение. Сравни варианты и при необходимости спроси совет у ИИ.
               </Text>
 
               <TouchableOpacity
                 style={styles.mortgageButton}
                 activeOpacity={0.88}
-                onPress={handleStartMortgage}
+                onPress={() => navigation.navigate('MortgageOffers')}
               >
-                <Text style={styles.mortgageButtonText}>Взять ипотеку</Text>
+                <Text style={styles.mortgageButtonText}>
+                  Смотреть предложения
+                </Text>
               </TouchableOpacity>
             </>
           )}
@@ -323,7 +304,7 @@ export default function LifeScreen() {
               </Text>
 
               <Text style={styles.timerValue}>
-                {formatTime(mortgage.remainingSeconds)}
+                {formatTime(mortgageRemainingSeconds)}
               </Text>
 
               <View style={styles.progressBarBackground}>
