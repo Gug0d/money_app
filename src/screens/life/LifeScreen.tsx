@@ -151,6 +151,7 @@ export default function LifeScreen({ navigation }: Props) {
           <TouchableOpacity
             style={[styles.mapNode, styles.nodeBank]}
             activeOpacity={0.88}
+            onPress={() => navigation.navigate('Bank')}
           >
             <View style={styles.nodeIconCircle}>
               <Ionicons name="business" size={26} color="#FFFFFF" />
@@ -275,14 +276,16 @@ export default function LifeScreen({ navigation }: Props) {
 
           {mortgageStatus === 'locked' && (
             <Text style={styles.mortgageText}>
-              Ипотека откроется на 3 уровне. Продолжай выполнять миссии и получать опыт.
+              Ипотека откроется на 3 уровне. Продолжай выполнять миссии и
+              получать опыт.
             </Text>
           )}
 
           {mortgageStatus === 'available' && (
             <>
               <Text style={styles.mortgageText}>
-                Ты открыл возможность выбрать ипотечное предложение. Сравни варианты и при необходимости спроси совет у ИИ.
+                Ты открыл возможность выбрать ипотечное предложение. Сравни
+                варианты и при необходимости спроси совет у ИИ.
               </Text>
 
               <TouchableOpacity
@@ -317,7 +320,8 @@ export default function LifeScreen({ navigation }: Props) {
               </View>
 
               <Text style={styles.accelerationText}>
-                Ускорить на {ACCELERATION_SECONDS} сек. за {ACCELERATION_COST} фин коинов
+                Ускорить на {ACCELERATION_SECONDS} сек. за {ACCELERATION_COST} фин
+                коинов
               </Text>
 
               <TouchableOpacity
@@ -332,7 +336,8 @@ export default function LifeScreen({ navigation }: Props) {
 
           {mortgageStatus === 'completed' && (
             <Text style={styles.mortgageSuccessText}>
-              Поздравляем! Ипотека закрыта. Ты успешно прошёл первый крупный финансовый этап.
+              Поздравляем! Ипотека закрыта. Ты успешно прошёл первый крупный
+              финансовый этап.
             </Text>
           )}
         </View>

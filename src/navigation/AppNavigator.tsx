@@ -20,6 +20,7 @@ import MissionDetailsScreen, {
   MissionsStackParamList,
 } from '../screens/missions/MissionDetailsScreen';
 import LifeScreen from '../screens/life/LifeScreen';
+import BankScreen from '../screens/life/BankScreen';
 import MortgageOffersScreen from '../screens/life/MortgageOffersScreen';
 import AdvisorScreen from '../screens/advisor/AdvisorScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -34,6 +35,7 @@ import { useGame } from '../store/GameContext';
 
 export type LifeStackParamList = {
   LifeMain: undefined;
+  Bank: undefined;
   MortgageOffers: undefined;
 };
 
@@ -88,6 +90,7 @@ function LifeNavigator() {
   return (
     <LifeStack.Navigator screenOptions={{ headerShown: false }}>
       <LifeStack.Screen name="LifeMain" component={LifeScreen} />
+      <LifeStack.Screen name="Bank" component={BankScreen} />
       <LifeStack.Screen
         name="MortgageOffers"
         component={MortgageOffersScreen}

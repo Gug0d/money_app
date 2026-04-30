@@ -8,9 +8,13 @@ import React, {
 } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+
 import { auth, db } from '../services/firebase';
+import { DepositProduct } from '../constants/depositProducts';
+import { LoanProduct } from '../constants/loanProducts';
 
 type MortgageStatus = 'locked' | 'available' | 'active' | 'completed';
+type ActiveLoanStatus = 'active' | 'overdue' | 'closed';
 
 type MortgageState = {
   isActive: boolean;
@@ -18,7 +22,39 @@ type MortgageState = {
   totalSeconds: number;
   durationSeconds: number;
   startedAt: number | null;
+};
 
+type ActiveDeposit = {
+  productId: string;
+  title: string;
+  amount: number;
+  interestPercent: number;
+  payoutAmount: number;
+  durationSeconds: number;
+  startedAt: number;
+  isCompleted: boolean;
+};
+
+type ActiveLoan = {
+  productId: string;
+  title: string;
+
+  principal: number;
+  remainingDebt: number;
+
+  interestPercent: number;
+  totalRepayment: number;
+
+  monthlyPayment: number;
+  paidPayments: number;
+  totalPayments: number;
+
+  nextPaymentAt: number;
+
+  overdueDays: number;
+  penaltyAmount: number;
+
+  status: ActiveLoanStatus;
 };
 
 type GameContextType = {
@@ -33,6 +69,12 @@ type GameContextType = {
   mortgageStatus: MortgageStatus;
   mortgageRemainingSeconds: number;
 
+  activeDeposit: ActiveDeposit | null;
+  depositRemainingSeconds: number;
+
+  activeLoan: ActiveLoan | null;
+  loanRemainingSeconds: number;
+
   isGuest: boolean;
   isGameLoading: boolean;
   onboardingCompleted: boolean;
@@ -44,7 +86,27 @@ type GameContextType = {
   addTestXp: (amount: number) => Promise<void>;
   addTestCoins: (amount: number) => Promise<void>;
   spendFinCoin: (amount: number) => Promise<boolean>;
-  startMortgage: (options?: { totalSeconds?: number }) => Promise<boolean>;
+
+  openDeposit: (
+    product: DepositProduct,
+    amount?: number
+  ) => Promise<{ success: boolean; message: string }>;
+
+  reduceDepositTime: (seconds: number, cost?: number) => Promise<boolean>;
+
+  takeLoan: (
+    product: LoanProduct
+  ) => Promise<{ success: boolean; message: string }>;
+
+  payLoan: () => Promise<boolean>;
+  closeLoan: () => Promise<boolean>;
+  forceOverdue: () => void;
+
+  startMortgage: (options?: {
+    totalSeconds?: number;
+    downPayment?: number;
+  }) => Promise<boolean>;
+
   reduceMortgageTime: (seconds: number, cost: number) => Promise<boolean>;
   reloadUserData: () => Promise<void>;
 };
@@ -55,6 +117,15 @@ const LEVELS = [
   { level: 1, minXp: 0, maxXp: 100 },
   { level: 2, minXp: 100, maxXp: 250 },
   { level: 3, minXp: 250, maxXp: 450 },
+  { level: 4, minXp: 450, maxXp: 700 },
+  { level: 5, minXp: 700, maxXp: 1000 },
+  { level: 6, minXp: 1000, maxXp: 1350 },
+  { level: 7, minXp: 1350, maxXp: 1750 },
+  { level: 8, minXp: 1750, maxXp: 2200 },
+  { level: 9, minXp: 2200, maxXp: 2700 },
+  { level: 10, minXp: 2700, maxXp: 3250 },
+  { level: 11, minXp: 3250, maxXp: 3850 },
+  { level: 12, minXp: 3850, maxXp: 4500 },
 ];
 
 const MORTGAGE_UNLOCK_LEVEL = 3;
@@ -76,20 +147,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [finCoin, setFinCoin] = useState(0);
   const [mortgage, setMortgage] = useState<MortgageState>(DEFAULT_MORTGAGE);
 
+  const [activeDeposit, setActiveDeposit] = useState<ActiveDeposit | null>(null);
+  const [depositRemainingSeconds, setDepositRemainingSeconds] = useState(0);
+
+  const [activeLoan, setActiveLoan] = useState<ActiveLoan | null>(null);
+  const [loanRemainingSeconds, setLoanRemainingSeconds] = useState(0);
+
   const [isGuest, setIsGuest] = useState(true);
   const [isGameLoading, setIsGameLoading] = useState(true);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [userDataLoaded, setUserDataLoaded] = useState(false);
   const [mortgageRemainingSeconds, setMortgageRemainingSeconds] = useState(0);
 
-  const addTestXp = async (amount: number) => {
-    await addRewards(amount, 0);
-  };
-
-  const addTestCoins = async (amount: number) => {
-    await addRewards(0, amount);
-  };
   const userIdRef = useRef<string | null>(null);
+  const depositCompletedRef = useRef(false);
+  const mortgageCompletedRef = useRef(false);
 
   const levelData = useMemo(() => getLevelDataByXp(xp), [xp]);
   const level = levelData.level;
@@ -97,6 +169,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const progressToNextLevel = useMemo(() => {
     const range = levelData.maxXp - levelData.minXp;
     if (range <= 0) return 1;
+
     return Math.max(0, Math.min(1, (xp - levelData.minXp) / range));
   }, [xp, levelData]);
 
@@ -112,16 +185,29 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setFinCoin(0);
     setMortgage(DEFAULT_MORTGAGE);
     setMortgageRemainingSeconds(0);
+    setActiveDeposit(null);
+    setDepositRemainingSeconds(0);
+    setActiveLoan(null);
+    setLoanRemainingSeconds(0);
     setOnboardingCompleted(false);
+
+    depositCompletedRef.current = false;
+    mortgageCompletedRef.current = false;
   };
 
   const saveUserGameData = async (data: Record<string, any>) => {
     if (!userIdRef.current) return;
-
     await updateDoc(doc(db, 'users', userIdRef.current), data);
   };
 
-  const loadUserData = async (userOverride?: { uid: string; email: string | null; displayName: string | null; isAnonymous: boolean }) => {
+  const loadUserData = async (
+    userOverride?: {
+      uid: string;
+      email: string | null;
+      displayName: string | null;
+      isAnonymous: boolean;
+    }
+  ) => {
     const currentUid = userOverride?.uid ?? userIdRef.current;
 
     if (!currentUid) {
@@ -132,18 +218,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
 
     const currentEmail = userOverride?.email ?? auth.currentUser?.email ?? null;
-    const currentName = userOverride?.displayName ?? auth.currentUser?.displayName ?? null;
-    const currentIsAnonymous = userOverride?.isAnonymous ?? auth.currentUser?.isAnonymous ?? true;
+    const currentName =
+      userOverride?.displayName ?? auth.currentUser?.displayName ?? null;
+    const currentIsAnonymous =
+      userOverride?.isAnonymous ?? auth.currentUser?.isAnonymous ?? true;
 
     try {
       setIsGameLoading(true);
       setUserDataLoaded(false);
 
       const userRef = doc(db, 'users', currentUid);
-
-      console.log('Пробуем прочитать Firestore...');
       let snap = await getDoc(userRef);
-      console.log('Firestore прочитан, exists =', snap.exists());
 
       if (!snap.exists()) {
         await setDoc(
@@ -155,6 +240,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             finCoin: 0,
             onboardingCompleted: false,
             mortgage: DEFAULT_MORTGAGE,
+            activeDeposit: null,
+            activeLoan: null,
             role: currentIsAnonymous ? 'guest' : 'user',
             createdAt: Date.now(),
           },
@@ -176,6 +263,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setXp(typeof data.xp === 'number' ? data.xp : 0);
       setFinCoin(typeof data.finCoin === 'number' ? data.finCoin : 0);
       setMortgage(data.mortgage || DEFAULT_MORTGAGE);
+      setActiveDeposit(data.activeDeposit || null);
+      setActiveLoan(data.activeLoan || null);
       setOnboardingCompleted(
         typeof data.onboardingCompleted === 'boolean'
           ? data.onboardingCompleted
@@ -186,7 +275,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setIsGameLoading(false);
     } catch (error) {
       console.log('Ошибка инициализации профиля:', error);
-
       resetLocalState();
       setUserDataLoaded(true);
       setIsGameLoading(false);
@@ -219,7 +307,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const updateRemaining = () => {
+    const updateMortgageRemaining = () => {
       if (!mortgage.isActive || !mortgage.startedAt) {
         setMortgageRemainingSeconds(0);
         return;
@@ -232,13 +320,160 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setMortgageRemainingSeconds(remaining);
     };
 
-    updateRemaining();
+    updateMortgageRemaining();
 
     if (!mortgage.isActive || !mortgage.startedAt) return;
 
-    const interval = setInterval(updateRemaining, 1000);
+    const interval = setInterval(updateMortgageRemaining, 1000);
     return () => clearInterval(interval);
   }, [mortgage]);
+
+  useEffect(() => {
+    const completeMortgage = async () => {
+      if (!mortgage.isActive || mortgage.isCompleted || !mortgage.startedAt) {
+        return;
+      }
+
+      const now = Date.now();
+      const passedSeconds = Math.floor((now - mortgage.startedAt) / 1000);
+      const remaining = mortgage.durationSeconds - passedSeconds;
+
+      if (remaining > 0) return;
+      if (mortgageCompletedRef.current) return;
+
+      mortgageCompletedRef.current = true;
+
+      const nextMortgage: MortgageState = {
+        ...mortgage,
+        isActive: false,
+        isCompleted: true,
+      };
+
+      setMortgage(nextMortgage);
+      setMortgageRemainingSeconds(0);
+
+      if (!isGuest && userIdRef.current) {
+        try {
+          await saveUserGameData({
+            mortgage: nextMortgage,
+          });
+        } catch (error) {
+          console.log('Ошибка завершения ипотеки:', error);
+        }
+      }
+    };
+
+    completeMortgage();
+  }, [mortgageRemainingSeconds, mortgage, isGuest]);
+
+  useEffect(() => {
+    if (!mortgage.isActive) {
+      mortgageCompletedRef.current = false;
+    }
+  }, [mortgage.isActive]);
+
+  useEffect(() => {
+    const updateDepositRemaining = () => {
+      if (!activeDeposit || activeDeposit.isCompleted) {
+        setDepositRemainingSeconds(0);
+        return;
+      }
+
+      const now = Date.now();
+      const passedSeconds = Math.floor((now - activeDeposit.startedAt) / 1000);
+      const remaining = Math.max(
+        0,
+        activeDeposit.durationSeconds - passedSeconds
+      );
+
+      setDepositRemainingSeconds(remaining);
+    };
+
+    updateDepositRemaining();
+
+    if (!activeDeposit || activeDeposit.isCompleted) return;
+
+    const interval = setInterval(updateDepositRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [activeDeposit]);
+
+  useEffect(() => {
+    const completeDeposit = async () => {
+      if (!activeDeposit || activeDeposit.isCompleted) return;
+
+      const now = Date.now();
+      const passedSeconds = Math.floor((now - activeDeposit.startedAt) / 1000);
+      const remaining = activeDeposit.durationSeconds - passedSeconds;
+
+      if (remaining > 0) return;
+      if (depositCompletedRef.current) return;
+
+      depositCompletedRef.current = true;
+
+      const nextFinCoin = finCoin + activeDeposit.payoutAmount;
+
+      setFinCoin(nextFinCoin);
+      setActiveDeposit(null);
+      setDepositRemainingSeconds(0);
+
+      if (!isGuest && userIdRef.current) {
+        try {
+          await saveUserGameData({
+            finCoin: nextFinCoin,
+            activeDeposit: null,
+          });
+        } catch (error) {
+          console.log('Ошибка завершения вклада:', error);
+        }
+      }
+    };
+
+    completeDeposit();
+  }, [depositRemainingSeconds, activeDeposit, finCoin, isGuest]);
+
+  useEffect(() => {
+    if (!activeDeposit) {
+      depositCompletedRef.current = false;
+    }
+  }, [activeDeposit]);
+
+  useEffect(() => {
+    if (!activeLoan) return;
+
+    const interval = setInterval(async () => {
+      const now = Date.now();
+
+      if (now <= activeLoan.nextPaymentAt) return;
+
+      const penalty = Math.ceil(activeLoan.monthlyPayment * 0.001);
+      const nextXp = Math.max(0, xp - 10);
+
+      const updatedLoan: ActiveLoan = {
+        ...activeLoan,
+        status: 'overdue',
+        overdueDays: activeLoan.overdueDays + 1,
+        penaltyAmount: activeLoan.penaltyAmount + penalty,
+        remainingDebt: activeLoan.remainingDebt + penalty,
+        nextPaymentAt: now + 60 * 1000,
+      };
+
+      setXp(nextXp);
+      setActiveLoan(updatedLoan);
+
+      if (!isGuest && userIdRef.current) {
+        try {
+          await saveUserGameData({
+            xp: nextXp,
+            activeLoan: updatedLoan,
+          });
+        } catch (error) {
+          console.log('Ошибка начисления просрочки:', error);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeLoan, xp, isGuest]);
 
   const addRewards = async (xpToAdd: number, finCoinToAdd: number) => {
     const nextXp = xp + xpToAdd;
@@ -259,7 +494,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addTestXp = async (amount: number) => {
+    await addRewards(amount, 0);
+  };
+
+  const addTestCoins = async (amount: number) => {
+    await addRewards(0, amount);
+  };
+
   const spendFinCoin = async (amount: number) => {
+    if (amount <= 0) return true;
     if (finCoin < amount) return false;
 
     const nextFinCoin = finCoin - amount;
@@ -279,11 +523,310 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
-  const startMortgage = async (options?: { totalSeconds?: number }) => {
+  const openDeposit = async (
+    product: DepositProduct,
+    amount?: number
+  ): Promise<{ success: boolean; message: string }> => {
+    if (level < product.requiredLevel) {
+      return {
+        success: false,
+        message: `Этот вклад откроется на ${product.requiredLevel} уровне.`,
+      };
+    }
+
+    if (activeDeposit && !activeDeposit.isCompleted) {
+      return {
+        success: false,
+        message: 'У вас уже есть активный вклад.',
+      };
+    }
+
+    const depositAmount = amount ?? product.minAmount;
+
+    if (depositAmount < product.minAmount) {
+      return {
+        success: false,
+        message: `Минимальная сумма вклада: ${product.minAmount} FinCoin.`,
+      };
+    }
+
+    if (finCoin < depositAmount) {
+      return {
+        success: false,
+        message: 'Недостаточно FinCoin для открытия вклада.',
+      };
+    }
+
+    const payoutAmount = Math.floor(
+      depositAmount + depositAmount * (product.interestPercent / 100)
+    );
+
+    const nextFinCoin = finCoin - depositAmount;
+
+    const nextDeposit: ActiveDeposit = {
+      productId: product.id,
+      title: product.title,
+      amount: depositAmount,
+      interestPercent: product.interestPercent,
+      payoutAmount,
+      durationSeconds: product.durationSeconds,
+      startedAt: Date.now(),
+      isCompleted: false,
+    };
+
+    depositCompletedRef.current = false;
+
+    setFinCoin(nextFinCoin);
+    setActiveDeposit(nextDeposit);
+    setDepositRemainingSeconds(product.durationSeconds);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          activeDeposit: nextDeposit,
+        });
+      } catch (error) {
+        console.log('Ошибка открытия вклада:', error);
+        return {
+          success: false,
+          message: 'Не удалось сохранить вклад.',
+        };
+      }
+    }
+
+    return {
+      success: true,
+      message: `Вклад "${product.title}" успешно открыт.`,
+    };
+  };
+
+  const reduceDepositTime = async (seconds: number, cost = 0) => {
+    if (!activeDeposit || activeDeposit.isCompleted) return false;
+    if (cost > 0 && finCoin < cost) return false;
+
+    const now = Date.now();
+    const passedSeconds = Math.floor((now - activeDeposit.startedAt) / 1000);
+
+    const currentRemaining = Math.max(
+      0,
+      activeDeposit.durationSeconds - passedSeconds
+    );
+
+    const nextRemaining = Math.max(0, currentRemaining - seconds);
+    const nextDurationSeconds = passedSeconds + nextRemaining;
+    const nextFinCoin = cost > 0 ? finCoin - cost : finCoin;
+
+    const nextDeposit: ActiveDeposit = {
+      ...activeDeposit,
+      durationSeconds: nextDurationSeconds,
+    };
+
+    setFinCoin(nextFinCoin);
+    setActiveDeposit(nextDeposit);
+    setDepositRemainingSeconds(nextRemaining);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          activeDeposit: nextDeposit,
+        });
+      } catch (error) {
+        console.log('Ошибка ускорения вклада:', error);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const takeLoan = async (
+    product: LoanProduct
+  ): Promise<{ success: boolean; message: string }> => {
+    if (level < product.requiredLevel) {
+      return {
+        success: false,
+        message: `Этот кредит откроется на ${product.requiredLevel} уровне.`,
+      };
+    }
+
+    if (activeLoan && activeLoan.status !== 'closed') {
+      return {
+        success: false,
+        message: 'У вас уже есть активный кредит.',
+      };
+    }
+
+    const totalPayments = 5;
+
+    const totalRepayment = Math.floor(
+      product.amount + product.amount * (product.interestPercent / 100)
+    );
+
+    const monthlyPayment = Math.ceil(totalRepayment / totalPayments);
+    const nextFinCoin = finCoin + product.amount;
+
+    const nextLoan: ActiveLoan = {
+      productId: product.id,
+      title: product.title,
+      principal: product.amount,
+      remainingDebt: totalRepayment,
+      interestPercent: product.interestPercent,
+      totalRepayment,
+      monthlyPayment,
+      paidPayments: 0,
+      totalPayments,
+      nextPaymentAt: Date.now() + 60 * 1000,
+      overdueDays: 0,
+      penaltyAmount: 0,
+      status: 'active',
+    };
+
+    setFinCoin(nextFinCoin);
+    setActiveLoan(nextLoan);
+    setLoanRemainingSeconds(0);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          activeLoan: nextLoan,
+        });
+      } catch (error) {
+        console.log('Ошибка оформления кредита:', error);
+        return {
+          success: false,
+          message: 'Не удалось сохранить кредит.',
+        };
+      }
+    }
+
+    return {
+      success: true,
+      message: `Кредит "${product.title}" оформлен. Следующий платёж: ${monthlyPayment} FinCoin.`,
+    };
+  };
+
+  const payLoan = async () => {
+    if (!activeLoan) return false;
+
+    const paymentAmount = Math.min(
+      activeLoan.monthlyPayment,
+      activeLoan.remainingDebt
+    );
+
+    if (finCoin < paymentAmount) return false;
+
+    const nextFinCoin = finCoin - paymentAmount;
+    const nextDebt = Math.max(0, activeLoan.remainingDebt - paymentAmount);
+    const nextPaidPayments = activeLoan.paidPayments + 1;
+
+    if (nextDebt <= 0 || nextPaidPayments >= activeLoan.totalPayments) {
+      setFinCoin(nextFinCoin);
+      setActiveLoan(null);
+      setLoanRemainingSeconds(0);
+
+      if (!isGuest && userIdRef.current) {
+        try {
+          await saveUserGameData({
+            finCoin: nextFinCoin,
+            activeLoan: null,
+          });
+        } catch (error) {
+          console.log('Ошибка закрытия кредита после платежа:', error);
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    const nextLoan: ActiveLoan = {
+      ...activeLoan,
+      remainingDebt: nextDebt,
+      paidPayments: nextPaidPayments,
+      nextPaymentAt: Date.now() + 60 * 1000,
+      overdueDays: 0,
+      penaltyAmount: activeLoan.penaltyAmount,
+      status: 'active',
+    };
+
+    setFinCoin(nextFinCoin);
+    setActiveLoan(nextLoan);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          activeLoan: nextLoan,
+        });
+      } catch (error) {
+        console.log('Ошибка внесения платежа:', error);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const closeLoan = async () => {
+    if (!activeLoan) return false;
+    if (finCoin < activeLoan.remainingDebt) return false;
+
+    const nextFinCoin = finCoin - activeLoan.remainingDebt;
+
+    setFinCoin(nextFinCoin);
+    setActiveLoan(null);
+    setLoanRemainingSeconds(0);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          activeLoan: null,
+        });
+      } catch (error) {
+        console.log('Ошибка полного закрытия кредита:', error);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const forceOverdue = () => {
+    if (!activeLoan) return;
+
+    const updatedLoan: ActiveLoan = {
+      ...activeLoan,
+      nextPaymentAt: Date.now() - 1000,
+    };
+
+    setActiveLoan(updatedLoan);
+
+    if (!isGuest && userIdRef.current) {
+      saveUserGameData({
+        activeLoan: updatedLoan,
+      }).catch((error) => {
+        console.log('Ошибка тестовой просрочки:', error);
+      });
+    }
+  };
+
+  const startMortgage = async (options?: {
+    totalSeconds?: number;
+    downPayment?: number;
+  }) => {
     if (level < MORTGAGE_UNLOCK_LEVEL) return false;
     if (mortgage.isActive) return false;
 
     const totalSeconds = options?.totalSeconds ?? DEFAULT_MORTGAGE.totalSeconds;
+    const downPayment = options?.downPayment ?? 0;
+
+    if (finCoin < downPayment) return false;
+
+    const nextFinCoin = finCoin - downPayment;
 
     const nextMortgage: MortgageState = {
       isActive: true,
@@ -293,11 +836,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       startedAt: Date.now(),
     };
 
+    mortgageCompletedRef.current = false;
+
+    setFinCoin(nextFinCoin);
     setMortgage(nextMortgage);
+    setMortgageRemainingSeconds(totalSeconds);
 
     if (!isGuest && userIdRef.current) {
       try {
         await saveUserGameData({
+          finCoin: nextFinCoin,
           mortgage: nextMortgage,
         });
       } catch (error) {
@@ -327,6 +875,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setFinCoin(nextFinCoin);
     setMortgage(nextMortgage);
 
+    if (isCompleted) {
+      setMortgageRemainingSeconds(0);
+    }
+
     if (!isGuest && userIdRef.current) {
       try {
         await saveUserGameData({
@@ -344,7 +896,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const reloadUserData = async () => {
     const currentUser = auth.currentUser;
-
     if (!currentUser) return;
 
     await loadUserData({
@@ -362,12 +913,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     currentLevelXp: levelData.minXp,
     nextLevelXp: levelData.maxXp,
     progressToNextLevel,
-    addTestXp,
-    addTestCoins,
 
     mortgage,
     mortgageStatus,
     mortgageRemainingSeconds,
+
+    activeDeposit,
+    depositRemainingSeconds,
+
+    activeLoan,
+    loanRemainingSeconds,
 
     isGuest,
     isGameLoading,
@@ -377,7 +932,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setOnboardingCompleted,
 
     addRewards,
+    addTestXp,
+    addTestCoins,
     spendFinCoin,
+
+    openDeposit,
+    reduceDepositTime,
+
+    takeLoan,
+    payLoan,
+    closeLoan,
+    forceOverdue,
+
     startMortgage,
     reduceMortgageTime,
     reloadUserData,
@@ -388,8 +954,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
 export function useGame() {
   const ctx = useContext(GameContext);
+
   if (!ctx) {
     throw new Error('useGame must be used inside GameProvider');
   }
+
   return ctx;
 }

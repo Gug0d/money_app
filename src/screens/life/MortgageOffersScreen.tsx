@@ -92,6 +92,7 @@ export default function MortgageOffersScreen({ navigation }: Props) {
 
       const success = await startMortgage({
         totalSeconds: selectedOffer.gameDurationSeconds,
+        downPayment: selectedOffer.downPayment,
       });
 
       if (!success) {
