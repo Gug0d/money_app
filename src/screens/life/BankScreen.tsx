@@ -71,6 +71,8 @@ export default function BankScreen({ navigation }: Props) {
     level,
     finCoin,
 
+    mortgageStatus,
+
     activeDeposit,
     depositRemainingSeconds,
 
@@ -159,6 +161,36 @@ export default function BankScreen({ navigation }: Props) {
     }
   };
 
+  const mortgageTitle =
+    mortgageStatus === 'locked'
+      ? 'Закрыто'
+      : mortgageStatus === 'available'
+      ? 'Доступно'
+      : mortgageStatus === 'active'
+      ? 'Активна'
+      : 'Закрыта';
+
+  const mortgageDescription =
+    mortgageStatus === 'locked'
+      ? 'Ипотека откроется на 3 уровне. Продолжай выполнять миссии и получать опыт.'
+      : mortgageStatus === 'available'
+      ? 'Ты можешь выбрать ипотечное предложение, сравнить условия и оформить подходящий вариант.'
+      : mortgageStatus === 'active'
+      ? 'У тебя уже есть активная ипотека. Сначала закрой текущую ипотеку на экране «Жизнь».'
+      : 'Предыдущая ипотека закрыта. Теперь можно выбрать новое предложение и пройти следующий финансовый этап.';
+
+  const mortgageButtonText =
+    mortgageStatus === 'locked'
+      ? 'Откроется на 3 уровне'
+      : mortgageStatus === 'active'
+      ? 'Ипотека уже активна'
+      : mortgageStatus === 'completed'
+      ? 'Выбрать новую ипотеку'
+      : 'Выбрать ипотеку';
+
+  const isMortgageButtonDisabled =
+    mortgageStatus === 'locked' || mortgageStatus === 'active';
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -194,6 +226,69 @@ export default function BankScreen({ navigation }: Props) {
           <Text style={styles.balanceHint}>
             Банковские продукты открываются по мере роста уровня персонажа.
           </Text>
+        </View>
+
+        <View style={styles.mortgageBankCard}>
+          <View style={styles.mortgageBankHeader}>
+            <View style={styles.mortgageBankTitleRow}>
+              <View style={styles.mortgageBankIcon}>
+                <MaterialCommunityIcons
+                  name="home-city-outline"
+                  size={24}
+                  color={colors.primaryDark}
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.mortgageBankTitle}>Ипотека</Text>
+                <Text style={styles.mortgageBankSubtitle}>
+                  Крупный финансовый продукт для взрослого этапа
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.mortgageBankBadge,
+                mortgageStatus === 'active' && styles.mortgageBankBadgeActive,
+                mortgageStatus === 'locked' && styles.mortgageBankBadgeLocked,
+                mortgageStatus === 'completed' &&
+                  styles.mortgageBankBadgeCompleted,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.mortgageBankBadgeText,
+                  mortgageStatus === 'locked' &&
+                    styles.mortgageBankBadgeTextLocked,
+                ]}
+              >
+                {mortgageTitle}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.mortgageBankText}>{mortgageDescription}</Text>
+
+          <TouchableOpacity
+            style={[
+              styles.mortgageBankButton,
+              isMortgageButtonDisabled && styles.mortgageBankButtonDisabled,
+            ]}
+            activeOpacity={0.85}
+            disabled={isMortgageButtonDisabled}
+            onPress={() => navigation.navigate('MortgageOffers')}
+          >
+            <Text
+              style={[
+                styles.mortgageBankButtonText,
+                isMortgageButtonDisabled &&
+                  styles.mortgageBankButtonTextDisabled,
+              ]}
+            >
+              {mortgageButtonText}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {activeDeposit && (
@@ -853,6 +948,93 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textDark,
   },
+
+  mortgageBankCard: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#E6E1D6',
+  },
+  mortgageBankHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+    gap: 12,
+  },
+  mortgageBankTitleRow: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  mortgageBankIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#E7F2EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  mortgageBankTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: colors.textDark,
+    marginBottom: 4,
+  },
+  mortgageBankSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+  },
+  mortgageBankBadge: {
+    backgroundColor: '#E8F7C8',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  mortgageBankBadgeActive: {
+    backgroundColor: '#FFF0C8',
+  },
+  mortgageBankBadgeLocked: {
+    backgroundColor: '#F1F1F1',
+  },
+  mortgageBankBadgeCompleted: {
+    backgroundColor: '#EAF6F3',
+  },
+  mortgageBankBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textDark,
+  },
+  mortgageBankBadgeTextLocked: {
+    color: colors.muted,
+  },
+  mortgageBankText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#31433F',
+    marginBottom: 14,
+  },
+  mortgageBankButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  mortgageBankButtonDisabled: {
+    backgroundColor: '#EEF2F0',
+  },
+  mortgageBankButtonText: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: colors.primaryDark,
+  },
+  mortgageBankButtonTextDisabled: {
+    color: colors.muted,
+  },
+
   activeCard: {
     backgroundColor: colors.card,
     borderRadius: 24,

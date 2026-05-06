@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import HouseholdScreen from '../screens/life/HouseholdScreen';
+
 
 import HomeScreen from '../screens/home/HomeScreen';
 import MissionsScreen from '../screens/missions/MissionsScreen';
@@ -37,6 +39,7 @@ export type LifeStackParamList = {
   LifeMain: undefined;
   Bank: undefined;
   MortgageOffers: undefined;
+  Household: undefined;
 };
 
 export type RootTabParamList = {
@@ -95,6 +98,7 @@ function LifeNavigator() {
         name="MortgageOffers"
         component={MortgageOffersScreen}
       />
+      <LifeStack.Screen name="Household" component={HouseholdScreen} />
     </LifeStack.Navigator>
   );
 }

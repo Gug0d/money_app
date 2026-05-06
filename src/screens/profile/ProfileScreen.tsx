@@ -8,19 +8,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+
+import colors from '../../constants/colors';
 import { auth, db } from '../../services/firebase';
 import { logout } from '../../services/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import colors from '../../constants/colors';
+import { useGame } from '../../store/GameContext';
 
 type UserProfileData = {
   name?: string | null;
   email?: string | null;
-  level?: number;
-  xp?: number;
-  finCoin?: number;
   isGuest?: boolean;
-  onboardingCompleted?: boolean;
   role?: string;
 };
 
@@ -38,6 +36,15 @@ export default function ProfileScreen({
   const [resetLoading, setResetLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
+  const {
+    level,
+    xp,
+    finCoin,
+    mortgageStatus,
+    onboardingCompleted,
+    isGameLoading,
+  } = useGame();
+
   const currentUser = auth.currentUser;
 
   const loadUserData = async () => {
@@ -45,11 +52,7 @@ export default function ProfileScreen({
       setUserData({
         name: 'Тестовый гость',
         email: null,
-        level: 1,
-        xp: 0,
-        finCoin: 0,
         isGuest: true,
-        onboardingCompleted: true,
         role: 'guest',
       });
       setLoading(false);
@@ -64,6 +67,7 @@ export default function ProfileScreen({
 
     try {
       setLoading(true);
+
       const userRef = doc(db, 'users', currentUser.uid);
       const userSnap = await getDoc(userRef);
 
@@ -157,6 +161,26 @@ export default function ProfileScreen({
     ? 'Гость'
     : 'Обычный аккаунт';
 
+  const mortgageStatusTitle =
+    mortgageStatus === 'locked'
+      ? 'Ипотека закрыта'
+      : mortgageStatus === 'available'
+      ? 'Ипотека доступна'
+      : mortgageStatus === 'active'
+      ? 'Ипотека активна'
+      : 'Ипотека закрыта';
+
+  const mortgageStatusText =
+    mortgageStatus === 'locked'
+      ? 'Ипотека пока недоступна. Продолжай развивать персонажа и повышать уровень.'
+      : mortgageStatus === 'available'
+      ? 'Ты можешь выбрать ипотечное предложение в разделе «Банк».'
+      : mortgageStatus === 'active'
+      ? 'У тебя есть активная ипотека. Следи за прогрессом её закрытия на экране «Жизнь».'
+      : 'Ипотека успешно закрыта. Новую ипотеку можно выбрать в разделе «Банк».';
+
+  const isLoading = loading || isGameLoading;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -166,7 +190,7 @@ export default function ProfileScreen({
         </Text>
 
         <View style={styles.card}>
-          {loading ? (
+          {isLoading ? (
             <View style={styles.loaderWrap}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loaderText}>Загружаем профиль...</Text>
@@ -180,17 +204,17 @@ export default function ProfileScreen({
               <View style={styles.statsRow}>
                 <View style={styles.statBox}>
                   <Text style={styles.statLabel}>Уровень</Text>
-                  <Text style={styles.statValue}>{userData?.level ?? 1}</Text>
+                  <Text style={styles.statValue}>{level}</Text>
                 </View>
 
                 <View style={styles.statBox}>
                   <Text style={styles.statLabel}>XP</Text>
-                  <Text style={styles.statValue}>{userData?.xp ?? 0}</Text>
+                  <Text style={styles.statValue}>{xp}</Text>
                 </View>
 
                 <View style={styles.statBox}>
                   <Text style={styles.statLabel}>FinCoin</Text>
-                  <Text style={styles.statValue}>{userData?.finCoin ?? 0}</Text>
+                  <Text style={styles.statValue}>{finCoin}</Text>
                 </View>
               </View>
 
@@ -199,18 +223,26 @@ export default function ProfileScreen({
                 <Text style={styles.statusText}>
                   {guestMode
                     ? 'Отключён для тестового входа'
-                    : userData?.onboardingCompleted
+                    : onboardingCompleted
                     ? 'Пройден'
                     : 'Не пройден или был сброшен'}
                 </Text>
+              </View>
+
+              <View style={styles.mortgageStatusBox}>
+                <Text style={styles.statusTitle}>{mortgageStatusTitle}</Text>
+                <Text style={styles.statusText}>{mortgageStatusText}</Text>
               </View>
             </>
           )}
         </View>
 
-        {!guestMode && !loading ? (
+        {!guestMode && !isLoading ? (
           <TouchableOpacity
-            style={[styles.secondaryButton, resetLoading && styles.buttonDisabled]}
+            style={[
+              styles.secondaryButton,
+              resetLoading && styles.buttonDisabled,
+            ]}
             onPress={handleResetOnboarding}
             activeOpacity={0.85}
             disabled={resetLoading}
@@ -221,7 +253,7 @@ export default function ProfileScreen({
           </TouchableOpacity>
         ) : null}
 
-        {guestMode && !loading ? (
+        {guestMode && !isLoading ? (
           <View style={styles.guestHintBox}>
             <Text style={styles.guestHintText}>
               В тестовом гостевом режиме онбординг не используется.
@@ -334,6 +366,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F1E3B4',
   },
+  mortgageStatusBox: {
+    backgroundColor: '#EAF6F3',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#D7EDE8',
+    marginTop: 12,
+  },
   statusTitle: {
     fontSize: 16,
     fontWeight: '900',
@@ -342,6 +382,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 15,
+    lineHeight: 22,
     color: '#31433F',
   },
   secondaryButton: {

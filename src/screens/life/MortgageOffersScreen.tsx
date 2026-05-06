@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+
 import colors from '../../constants/colors';
 import { mortgageOffers } from '../../constants/mortgageOffers';
 import { MortgageOffer, AiAdviceResponse } from '../../types/finance';
@@ -36,6 +37,10 @@ export default function MortgageOffersScreen({ navigation }: Props) {
   );
 
   const handleAskAi = async () => {
+    if (loadingAdvice || mortgageStatus === 'active') {
+      return;
+    }
+
     if (finCoin < AI_ADVICE_COST) {
       Alert.alert(
         'Недостаточно монет',
@@ -61,6 +66,10 @@ export default function MortgageOffersScreen({ navigation }: Props) {
       });
 
       setAdvice(response);
+
+      if (response.recommendedOfferId) {
+        setSelectedOfferId(response.recommendedOfferId);
+      }
     } catch (error) {
       Alert.alert('Ошибка', 'Не удалось получить совет ИИ.');
     } finally {
@@ -79,14 +88,6 @@ export default function MortgageOffersScreen({ navigation }: Props) {
       return;
     }
 
-    if (mortgageStatus === 'completed') {
-      Alert.alert(
-        'Ипотека уже завершена',
-        'Текущая ипотека уже закрыта. Для следующего этапа лучше добавить новую механику.'
-      );
-      return;
-    }
-
     try {
       setCreatingMortgage(true);
 
@@ -98,7 +99,7 @@ export default function MortgageOffersScreen({ navigation }: Props) {
       if (!success) {
         Alert.alert(
           'Не удалось оформить ипотеку',
-          'Проверь, доступна ли ипотека на текущем уровне.'
+          'Проверь, доступна ли ипотека на текущем уровне и хватает ли условий для оформления.'
         );
         return;
       }
@@ -117,6 +118,10 @@ export default function MortgageOffersScreen({ navigation }: Props) {
   };
 
   const handleSelectOffer = (offer: MortgageOffer) => {
+    if (mortgageStatus === 'active') {
+      return;
+    }
+
     setSelectedOfferId(offer.id);
   };
 
@@ -136,6 +141,28 @@ export default function MortgageOffersScreen({ navigation }: Props) {
           Сравни условия, спроси совет у ИИ и оформи подходящий вариант
         </Text>
 
+        {mortgageStatus === 'completed' && (
+          <View style={styles.completedInfoCard}>
+            <Text style={styles.completedInfoTitle}>
+              Предыдущая ипотека закрыта
+            </Text>
+            <Text style={styles.completedInfoText}>
+              Теперь можно выбрать новое предложение и пройти следующий
+              финансовый этап.
+            </Text>
+          </View>
+        )}
+
+        {mortgageStatus === 'active' && (
+          <View style={styles.activeInfoCard}>
+            <Text style={styles.activeInfoTitle}>Ипотека уже активна</Text>
+            <Text style={styles.activeInfoText}>
+              Сначала закрой текущую ипотеку на экране «Жизнь», после этого
+              можно будет выбрать новое предложение.
+            </Text>
+          </View>
+        )}
+
         {mortgageOffers.map((offer) => {
           const isSelected = selectedOfferId === offer.id;
           const isRecommended = advice?.recommendedOfferId === offer.id;
@@ -146,9 +173,11 @@ export default function MortgageOffersScreen({ navigation }: Props) {
               style={[
                 styles.offerCard,
                 isSelected && styles.offerCardSelected,
+                mortgageStatus === 'active' && styles.offerCardDisabled,
               ]}
               activeOpacity={0.92}
               onPress={() => handleSelectOffer(offer)}
+              disabled={mortgageStatus === 'active'}
             >
               <View style={styles.offerHeader}>
                 <Text style={styles.bankName}>{offer.bankName}</Text>
@@ -189,10 +218,14 @@ export default function MortgageOffersScreen({ navigation }: Props) {
         })}
 
         <TouchableOpacity
-          style={styles.aiButton}
+          style={[
+            styles.aiButton,
+            (loadingAdvice || mortgageStatus === 'active') &&
+              styles.aiButtonDisabled,
+          ]}
           onPress={handleAskAi}
           activeOpacity={0.88}
-          disabled={loadingAdvice}
+          disabled={loadingAdvice || mortgageStatus === 'active'}
         >
           <Text style={styles.aiButtonText}>
             {loadingAdvice
@@ -213,9 +246,12 @@ export default function MortgageOffersScreen({ navigation }: Props) {
           <View style={styles.adviceCard}>
             <Text style={styles.adviceTitle}>Совет ИИ</Text>
             <Text style={styles.adviceSummary}>{advice.summary}</Text>
-            <Text style={styles.adviceReason}>{advice.recommendationReason}</Text>
+            <Text style={styles.adviceReason}>
+              {advice.recommendationReason}
+            </Text>
 
             <Text style={styles.tradeoffTitle}>На что обратить внимание:</Text>
+
             {advice.tradeoffs.map((item, index) => (
               <Text key={index} style={styles.tradeoffText}>
                 • {item}
@@ -227,11 +263,16 @@ export default function MortgageOffersScreen({ navigation }: Props) {
         <TouchableOpacity
           style={[
             styles.createButton,
-            (!selectedOffer || creatingMortgage) && styles.createButtonDisabled,
+            (!selectedOffer ||
+              creatingMortgage ||
+              mortgageStatus === 'active') &&
+              styles.createButtonDisabled,
           ]}
           onPress={handleCreateMortgage}
           activeOpacity={0.88}
-          disabled={!selectedOffer || creatingMortgage}
+          disabled={
+            !selectedOffer || creatingMortgage || mortgageStatus === 'active'
+          }
         >
           <Text style={styles.createButtonText}>
             {creatingMortgage ? 'Оформление...' : 'Оформить выбранную ипотеку'}
@@ -272,6 +313,44 @@ const styles = StyleSheet.create({
     color: '#5E6E69',
     marginBottom: 20,
   },
+  completedInfoCard: {
+    backgroundColor: '#FFF7DE',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F1E3B4',
+    marginBottom: 16,
+  },
+  completedInfoTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: colors.primaryDark,
+    marginBottom: 6,
+  },
+  completedInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#31433F',
+  },
+  activeInfoCard: {
+    backgroundColor: '#FDECEC',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F4C7C7',
+    marginBottom: 16,
+  },
+  activeInfoTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#8A2E2E',
+    marginBottom: 6,
+  },
+  activeInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6E3434',
+  },
   offerCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
@@ -284,6 +363,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 2,
     backgroundColor: '#F8FBFA',
+  },
+  offerCardDisabled: {
+    opacity: 0.65,
   },
   offerHeader: {
     flexDirection: 'row',
@@ -338,6 +420,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 16,
+  },
+  aiButtonDisabled: {
+    opacity: 0.6,
   },
   aiButtonText: {
     color: '#FFFFFF',

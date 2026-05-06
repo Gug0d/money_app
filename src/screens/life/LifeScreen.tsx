@@ -14,6 +14,7 @@ import {
   FontAwesome5,
 } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+
 import colors from '../../constants/colors';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
@@ -53,7 +54,7 @@ export default function LifeScreen({ navigation }: Props) {
       : level === 2
       ? 'Достигни 3 уровня, чтобы открыть ипотеку.'
       : level === 3
-      ? 'Теперь тебе доступна ипотека. Сравни предложения и выбери лучший вариант.'
+      ? 'Теперь тебе доступна ипотека. Сравни предложения в разделе «Банк» и выбери лучший вариант.'
       : 'Продолжай развивать персонажа и открывай новые финансовые возможности.';
 
   const progressPercent = Math.round(progressToNextLevel * 100);
@@ -113,6 +114,7 @@ export default function LifeScreen({ navigation }: Props) {
           <TouchableOpacity
             style={[styles.mapNode, styles.nodeHome]}
             activeOpacity={0.88}
+            onPress={() => navigation.navigate('Household')}
           >
             <View style={styles.nodeIconCircle}>
               <Ionicons name="home" size={26} color="#FFFFFF" />
@@ -190,7 +192,7 @@ export default function LifeScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.progressCard}>
-          <Text style={styles.progressTitle}>Прогресс персонажа</Text>
+          <Text style={styles.progressTitle}>Возрастной прогресс</Text>
 
           <View style={styles.progressRow}>
             <View style={styles.progressItem}>
@@ -214,7 +216,9 @@ export default function LifeScreen({ navigation }: Props) {
               <Text style={styles.levelProgressTitle}>
                 Прогресс до следующего уровня
               </Text>
-              <Text style={styles.levelProgressPercent}>{progressPercent}%</Text>
+              <Text style={styles.levelProgressPercent}>
+                {progressPercent}%
+              </Text>
             </View>
 
             <View style={styles.progressBarBackground}>
@@ -260,87 +264,80 @@ export default function LifeScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <View style={styles.mortgageCard}>
-          <View style={styles.mortgageHeader}>
-            <Text style={styles.mortgageTitle}>Ипотека</Text>
-            <Text style={styles.mortgageStatus}>
-              {mortgageStatus === 'locked'
-                ? 'Закрыто'
-                : mortgageStatus === 'available'
-                ? 'Доступно'
-                : mortgageStatus === 'active'
-                ? 'Активна'
-                : 'Закрыта'}
-            </Text>
-          </View>
-
-          {mortgageStatus === 'locked' && (
-            <Text style={styles.mortgageText}>
-              Ипотека откроется на 3 уровне. Продолжай выполнять миссии и
-              получать опыт.
-            </Text>
-          )}
-
-          {mortgageStatus === 'available' && (
-            <>
-              <Text style={styles.mortgageText}>
-                Ты открыл возможность выбрать ипотечное предложение. Сравни
-                варианты и при необходимости спроси совет у ИИ.
+        {mortgageStatus !== 'completed' && (
+          <View style={styles.mortgageCard}>
+            <View style={styles.mortgageHeader}>
+              <Text style={styles.mortgageTitle}>Ипотека</Text>
+              <Text style={styles.mortgageStatus}>
+                {mortgageStatus === 'locked'
+                  ? 'Закрыто'
+                  : mortgageStatus === 'available'
+                  ? 'Доступно'
+                  : mortgageStatus === 'active'
+                  ? 'Активна'
+                  : 'Закрыта'}
               </Text>
+            </View>
 
-              <TouchableOpacity
-                style={styles.mortgageButton}
-                activeOpacity={0.88}
-                onPress={() => navigation.navigate('MortgageOffers')}
-              >
-                <Text style={styles.mortgageButtonText}>
-                  Смотреть предложения
+            {mortgageStatus === 'locked' && (
+              <Text style={styles.mortgageText}>
+                Ипотека откроется на 3 уровне. Продолжай выполнять миссии и
+                получать опыт.
+              </Text>
+            )}
+
+            {mortgageStatus === 'available' && (
+              <>
+                <Text style={styles.mortgageText}>
+                  Ты открыл возможность выбрать ипотечное предложение. Перейди в
+                  раздел «Банк», сравни варианты и оформи подходящую ипотеку.
                 </Text>
-              </TouchableOpacity>
-            </>
-          )}
 
-          {mortgageStatus === 'active' && (
-            <>
-              <Text style={styles.mortgageText}>
-                Ипотека оформлена. Осталось времени до закрытия:
-              </Text>
+                <TouchableOpacity
+                  style={styles.mortgageButton}
+                  activeOpacity={0.88}
+                  onPress={() => navigation.navigate('Bank')}
+                >
+                  <Text style={styles.mortgageButtonText}>Перейти в банк</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-              <Text style={styles.timerValue}>
-                {formatTime(mortgageRemainingSeconds)}
-              </Text>
+            {mortgageStatus === 'active' && (
+              <>
+                <Text style={styles.mortgageText}>
+                  Ипотека оформлена. Осталось времени до закрытия:
+                </Text>
 
-              <View style={styles.progressBarBackground}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    { width: `${mortgageProgress}%` },
-                  ]}
-                />
-              </View>
+                <Text style={styles.timerValue}>
+                  {formatTime(mortgageRemainingSeconds)}
+                </Text>
 
-              <Text style={styles.accelerationText}>
-                Ускорить на {ACCELERATION_SECONDS} сек. за {ACCELERATION_COST} фин
-                коинов
-              </Text>
+                <View style={styles.progressBarBackground}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${mortgageProgress}%` },
+                    ]}
+                  />
+                </View>
 
-              <TouchableOpacity
-                style={styles.mortgageButton}
-                activeOpacity={0.88}
-                onPress={handleReduceTime}
-              >
-                <Text style={styles.mortgageButtonText}>Ускорить</Text>
-              </TouchableOpacity>
-            </>
-          )}
+                <Text style={styles.accelerationText}>
+                  Ускорить на {ACCELERATION_SECONDS} сек. за{' '}
+                  {ACCELERATION_COST} фин коинов
+                </Text>
 
-          {mortgageStatus === 'completed' && (
-            <Text style={styles.mortgageSuccessText}>
-              Поздравляем! Ипотека закрыта. Ты успешно прошёл первый крупный
-              финансовый этап.
-            </Text>
-          )}
-        </View>
+                <TouchableOpacity
+                  style={styles.mortgageButton}
+                  activeOpacity={0.88}
+                  onPress={handleReduceTime}
+                >
+                  <Text style={styles.mortgageButtonText}>Ускорить</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -821,11 +818,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: colors.primaryDark,
-  },
-  mortgageSuccessText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#2E7D32',
-    fontWeight: '800',
   },
 });

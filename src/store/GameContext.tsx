@@ -16,6 +16,33 @@ import { LoanProduct } from '../constants/loanProducts';
 type MortgageStatus = 'locked' | 'available' | 'active' | 'completed';
 type ActiveLoanStatus = 'active' | 'overdue' | 'closed';
 
+type HomeBillStatus = 'pending' | 'paid' | 'warning' | 'overdue';
+
+type HomeBill = {
+  id: number;
+  title: string;
+  amount: number;
+  due: string;
+  status: HomeBillStatus;
+  icon: string;
+
+  dueAt: number;
+  penalty: number;
+  penaltyApplied: boolean;
+};
+
+type HomeEvent = {
+  id: string;
+  title: string;
+  description: string;
+  cost: number;
+  comfortReward: number;
+  disciplineReward: number;
+  postponeComfortPenalty: number;
+  postponeDisciplinePenalty: number;
+  icon: string;
+};
+
 type MortgageState = {
   isActive: boolean;
   isCompleted: boolean;
@@ -57,6 +84,7 @@ type ActiveLoan = {
   status: ActiveLoanStatus;
 };
 
+
 type GameContextType = {
   xp: number;
   finCoin: number;
@@ -75,6 +103,18 @@ type GameContextType = {
   activeLoan: ActiveLoan | null;
   loanRemainingSeconds: number;
 
+  homeBills: HomeBill[];
+  homeComfort: number;
+  homeDiscipline: number;
+  homeEvent: HomeEvent | null;
+  homeEventAvailableAt: number | null;
+
+  payHomeBill: (billId: number) => Promise<boolean>;
+  repairHomeProblem: () => Promise<boolean>;
+  postponeHomeProblem: () => Promise<boolean>;
+  resetHomeBillsForTest: () => Promise<void>;
+  triggerHomeEventForTest: () => Promise<void>;
+  
   isGuest: boolean;
   isGameLoading: boolean;
   onboardingCompleted: boolean;
@@ -138,6 +178,105 @@ const DEFAULT_MORTGAGE: MortgageState = {
   startedAt: null,
 };
 
+const HOME_EVENTS: HomeEvent[] = [
+  {
+    id: 'boiler',
+    title: 'Сломался бойлер',
+    description: 'Можно починить сейчас или отложить и потерять комфорт.',
+    cost: 150,
+    comfortReward: 12,
+    disciplineReward: 3,
+    postponeComfortPenalty: 15,
+    postponeDisciplinePenalty: 5,
+    icon: '💥',
+  },
+  {
+    id: 'internet',
+    title: 'Проблемы с интернетом',
+    description: 'Провайдер предлагает срочный ремонт линии.',
+    cost: 80,
+    comfortReward: 7,
+    disciplineReward: 2,
+    postponeComfortPenalty: 10,
+    postponeDisciplinePenalty: 3,
+    icon: '🌐',
+  },
+  {
+    id: 'pipes',
+    title: 'Протекает труба',
+    description: 'Если не решить проблему сейчас, дома станет менее комфортно.',
+    cost: 120,
+    comfortReward: 10,
+    disciplineReward: 4,
+    postponeComfortPenalty: 14,
+    postponeDisciplinePenalty: 4,
+    icon: '💧',
+  },
+];
+
+const getRandomHomeEvent = () =>
+  HOME_EVENTS[Math.floor(Math.random() * HOME_EVENTS.length)];
+
+const getRandomEventDelay = () => {
+  const minSeconds = 30;
+  const maxSeconds = 90;
+
+  return (
+    minSeconds + Math.floor(Math.random() * (maxSeconds - minSeconds))
+  ) * 1000;
+};
+
+const createDefaultHomeBills = (): HomeBill[] => {
+  const now = Date.now();
+
+  return [
+    {
+      id: 1,
+      title: 'Электричество',
+      amount: 45,
+      due: 'до 5 числа',
+      status: 'pending',
+      icon: '⚡',
+      dueAt: now + 45 * 1000,
+      penalty: 15,
+      penaltyApplied: false,
+    },
+    {
+      id: 2,
+      title: 'Вода',
+      amount: 25,
+      due: 'до 7 числа',
+      status: 'pending',
+      icon: '💧',
+      dueAt: now + 60 * 1000,
+      penalty: 10,
+      penaltyApplied: false,
+    },
+    {
+      id: 3,
+      title: 'Интернет',
+      amount: 30,
+      due: 'до 10 числа',
+      status: 'pending',
+      icon: '🌐',
+      dueAt: now + 75 * 1000,
+      penalty: 12,
+      penaltyApplied: false,
+    },
+    {
+      id: 4,
+      title: 'Аренда',
+      amount: 350,
+      due: 'до 1 числа',
+      status: 'pending',
+      icon: '🏠',
+      dueAt: now + 90 * 1000,
+      penalty: 50,
+      penaltyApplied: false,
+    },
+  ];
+};
+
 const getLevelDataByXp = (xp: number) =>
   LEVELS.find((l) => xp >= l.minXp && xp < l.maxXp) ||
   LEVELS[LEVELS.length - 1];
@@ -152,6 +291,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const [activeLoan, setActiveLoan] = useState<ActiveLoan | null>(null);
   const [loanRemainingSeconds, setLoanRemainingSeconds] = useState(0);
+
+  const [homeBills, setHomeBills] = useState<HomeBill[]>(() =>
+    createDefaultHomeBills()
+  );
+  const [homeComfort, setHomeComfort] = useState(70);
+  const [homeDiscipline, setHomeDiscipline] = useState(80);
+  const [homeEvent, setHomeEvent] = useState<HomeEvent | null>(null);
+  const [homeEventAvailableAt, setHomeEventAvailableAt] = useState<number | null>(
+    Date.now() + getRandomEventDelay()
+  );
 
   const [isGuest, setIsGuest] = useState(true);
   const [isGameLoading, setIsGameLoading] = useState(true);
@@ -190,7 +339,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setActiveLoan(null);
     setLoanRemainingSeconds(0);
     setOnboardingCompleted(false);
-
+    setHomeBills(createDefaultHomeBills());
+    setHomeComfort(70);
+    setHomeDiscipline(80);
+    setHomeEvent(null);
+    setHomeEventAvailableAt(Date.now() + getRandomEventDelay());
     depositCompletedRef.current = false;
     mortgageCompletedRef.current = false;
   };
@@ -229,7 +382,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       const userRef = doc(db, 'users', currentUid);
       let snap = await getDoc(userRef);
-
       if (!snap.exists()) {
         await setDoc(
           userRef,
@@ -239,9 +391,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             xp: 0,
             finCoin: 0,
             onboardingCompleted: false,
+
             mortgage: DEFAULT_MORTGAGE,
             activeDeposit: null,
             activeLoan: null,
+
+            homeBills: createDefaultHomeBills(),
+            homeComfort: 70,
+            homeDiscipline: 80,
+            homeEventResolved: false,
+
             role: currentIsAnonymous ? 'guest' : 'user',
             createdAt: Date.now(),
           },
@@ -265,6 +424,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setMortgage(data.mortgage || DEFAULT_MORTGAGE);
       setActiveDeposit(data.activeDeposit || null);
       setActiveLoan(data.activeLoan || null);
+      setHomeBills(Array.isArray(data.homeBills) ? data.homeBills : createDefaultHomeBills());
+      setHomeComfort(typeof data.homeComfort === 'number' ? data.homeComfort : 70);
+      setHomeDiscipline(
+        typeof data.homeDiscipline === 'number' ? data.homeDiscipline : 80
+      );
+      setHomeEvent(data.homeEvent || null);
+
+      setHomeEventAvailableAt(
+        typeof data.homeEventAvailableAt === 'number'
+          ? data.homeEventAvailableAt
+          : Date.now() + getRandomEventDelay()
+      );
       setOnboardingCompleted(
         typeof data.onboardingCompleted === 'boolean'
           ? data.onboardingCompleted
@@ -893,7 +1064,151 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     return true;
   };
+  
 
+    const payHomeBill = async (billId: number) => {
+    const bill = homeBills.find((item) => item.id === billId);
+
+    if (!bill || bill.status === 'paid') {
+      return false;
+    }
+
+    if (finCoin < bill.amount) {
+      return false;
+    }
+
+    const nextFinCoin = finCoin - bill.amount;
+
+    const nextHomeBills = homeBills.map((item) =>
+      item.id === billId ? { ...item, status: 'paid' as const } : item
+    );
+
+    const nextHomeDiscipline = Math.min(homeDiscipline + 4, 100);
+    const nextHomeComfort = Math.min(homeComfort + 1, 100);
+
+    setFinCoin(nextFinCoin);
+    setHomeBills(nextHomeBills);
+    setHomeDiscipline(nextHomeDiscipline);
+    setHomeComfort(nextHomeComfort);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          homeBills: nextHomeBills,
+          homeDiscipline: nextHomeDiscipline,
+          homeComfort: nextHomeComfort,
+        });
+      } catch (error) {
+        console.log('Ошибка оплаты домашнего счёта:', error);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const repairHomeProblem = async () => {
+    const repairCost = 150;
+
+    if (!homeEvent) {
+      return false;
+    }
+
+    if (finCoin < repairCost) {
+      return false;
+    }
+
+    const nextFinCoin = finCoin - repairCost;
+    const nextHomeComfort = Math.min(homeComfort + 12, 100);
+    const nextHomeDiscipline = Math.min(homeDiscipline + 3, 100);
+
+    setFinCoin(nextFinCoin);
+    setHomeComfort(nextHomeComfort);
+    setHomeDiscipline(nextHomeDiscipline);
+    setHomeEvent(null);
+    setHomeEventAvailableAt(Date.now() + getRandomEventDelay());
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          homeComfort: nextHomeComfort,
+          homeDiscipline: nextHomeDiscipline,
+          homeEventResolved: true,
+        });
+      } catch (error) {
+        console.log('Ошибка ремонта дома:', error);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const postponeHomeProblem = async () => {
+    if (!homeEvent) {
+      return false;
+    }
+
+    const nextHomeComfort = Math.max(homeComfort - 15, 0);
+    const nextHomeDiscipline = Math.max(homeDiscipline - 5, 0);
+
+    setHomeComfort(nextHomeComfort);
+    setHomeDiscipline(nextHomeDiscipline);
+    setHomeEvent(null);
+    setHomeEventAvailableAt(Date.now() + getRandomEventDelay());
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          homeComfort: nextHomeComfort,
+          homeDiscipline: nextHomeDiscipline,
+          homeEventResolved: true,
+        });
+      } catch (error) {
+        console.log('Ошибка откладывания ремонта:', error);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+
+  const resetHomeBillsForTest = async () => {
+  const nextHomeBills = createDefaultHomeBills();
+
+  setHomeBills(nextHomeBills);
+
+  if (!isGuest && userIdRef.current) {
+    try {
+      await saveUserGameData({
+        homeBills: nextHomeBills,
+      });
+    } catch (error) {
+      console.log('Ошибка сброса счетов:', error);
+    }
+  }
+};
+
+  const triggerHomeEventForTest = async () => {
+    const nextEvent = getRandomHomeEvent();
+
+    setHomeEvent(nextEvent);
+    setHomeEventAvailableAt(null);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          homeEvent: nextEvent,
+          homeEventAvailableAt: null,
+        });
+      } catch (error) {
+        console.log('Ошибка тестового события:', error);
+      }
+    }
+  };
   const reloadUserData = async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -923,6 +1238,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     activeLoan,
     loanRemainingSeconds,
+
+    homeBills,
+    homeComfort,
+    homeDiscipline,
+    homeEvent,
+    homeEventAvailableAt,
+
+    payHomeBill,
+    repairHomeProblem,
+    postponeHomeProblem,
+    resetHomeBillsForTest,
+    triggerHomeEventForTest,
 
     isGuest,
     isGameLoading,
