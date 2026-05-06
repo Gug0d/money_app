@@ -15,6 +15,17 @@ import { useGame } from '../../store/GameContext';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Household'>;
 
+function formatLongTime(seconds: number) {
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(
+    2,
+    '0'
+  )}:${String(secs).padStart(2, '0')}`;
+}
+
 export default function HouseholdScreen({ navigation }: Props) {
   const {
     finCoin,
@@ -22,6 +33,7 @@ export default function HouseholdScreen({ navigation }: Props) {
     homeComfort,
     homeDiscipline,
     homeEvent,
+    homeBillsRefreshRemainingSeconds,
     payHomeBill,
     repairHomeProblem,
     postponeHomeProblem,
@@ -96,6 +108,10 @@ export default function HouseholdScreen({ navigation }: Props) {
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${progress}%` }]} />
           </View>
+
+          <Text style={styles.timerText}>
+            До обновления: {formatLongTime(homeBillsRefreshRemainingSeconds)}
+          </Text>
         </View>
 
         {homeBills.map((bill) => {
@@ -111,6 +127,7 @@ export default function HouseholdScreen({ navigation }: Props) {
                 <View style={styles.billInfo}>
                   <Text style={styles.billTitle}>{bill.title}</Text>
                   <Text style={styles.billDue}>{bill.due}</Text>
+
                   {isOverdue && (
                     <Text style={styles.penaltyText}>
                       Штраф: {bill.penalty} FC
@@ -355,6 +372,12 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#F2C84B',
     borderRadius: 20,
+  },
+  timerText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#F7F1E4',
   },
   billCard: {
     backgroundColor: '#F7F1E4',

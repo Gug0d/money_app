@@ -108,6 +108,7 @@ type GameContextType = {
   homeDiscipline: number;
   homeEvent: HomeEvent | null;
   homeEventAvailableAt: number | null;
+  homeBillsRefreshRemainingSeconds: number;
 
   payHomeBill: (billId: number) => Promise<boolean>;
   repairHomeProblem: () => Promise<boolean>;
@@ -169,6 +170,8 @@ const LEVELS = [
 ];
 
 const MORTGAGE_UNLOCK_LEVEL = 3;
+
+const HOME_BILLS_REFRESH_DURATION = 10 * 60 * 60 * 1000;
 
 const DEFAULT_MORTGAGE: MortgageState = {
   isActive: false,
@@ -302,6 +305,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     Date.now() + getRandomEventDelay()
   );
 
+  const [homeBillsRefreshAt, setHomeBillsRefreshAt] = useState(
+  Date.now() + HOME_BILLS_REFRESH_DURATION
+);
+
+  const [
+    homeBillsRefreshRemainingSeconds,
+    setHomeBillsRefreshRemainingSeconds,
+  ] = useState(0);
+
   const [isGuest, setIsGuest] = useState(true);
   const [isGameLoading, setIsGameLoading] = useState(true);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
@@ -344,6 +356,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setHomeDiscipline(80);
     setHomeEvent(null);
     setHomeEventAvailableAt(Date.now() + getRandomEventDelay());
+    setHomeBillsRefreshAt(Date.now() + HOME_BILLS_REFRESH_DURATION);
+    setHomeBillsRefreshRemainingSeconds(
+      Math.ceil(HOME_BILLS_REFRESH_DURATION / 1000)
+    );
     depositCompletedRef.current = false;
     mortgageCompletedRef.current = false;
   };
@@ -399,7 +415,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             homeBills: createDefaultHomeBills(),
             homeComfort: 70,
             homeDiscipline: 80,
-            homeEventResolved: false,
+            homeEvent: null,
+            homeEventAvailableAt: Date.now() + getRandomEventDelay(),
+            homeBillsRefreshAt: Date.now() + HOME_BILLS_REFRESH_DURATION,
 
             role: currentIsAnonymous ? 'guest' : 'user',
             createdAt: Date.now(),
@@ -435,6 +453,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         typeof data.homeEventAvailableAt === 'number'
           ? data.homeEventAvailableAt
           : Date.now() + getRandomEventDelay()
+      );
+      setHomeBillsRefreshAt(
+        typeof data.homeBillsRefreshAt === 'number'
+          ? data.homeBillsRefreshAt
+          : Date.now() + HOME_BILLS_REFRESH_DURATION
       );
       setOnboardingCompleted(
         typeof data.onboardingCompleted === 'boolean'
@@ -665,6 +688,24 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+
+  useEffect(() => {
+  const interval = setInterval(() => {
+    const now = Date.now();
+    const remainingMs = homeBillsRefreshAt - now;
+    const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+
+    setHomeBillsRefreshRemainingSeconds(remainingSeconds);
+
+    if (remainingMs > 0) {
+      return;
+    }
+
+    resetHomeBillsForTest();
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [homeBillsRefreshAt, homeBills, finCoin, isGuest]);
   const addTestXp = async (amount: number) => {
     await addRewards(amount, 0);
   };
@@ -1135,7 +1176,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           finCoin: nextFinCoin,
           homeComfort: nextHomeComfort,
           homeDiscipline: nextHomeDiscipline,
-          homeEventResolved: true,
+          homeEvent: null,
+          homeEventAvailableAt: Date.now() + getRandomEventDelay(),
         });
       } catch (error) {
         console.log('Ошибка ремонта дома:', error);
@@ -1164,7 +1206,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         await saveUserGameData({
           homeComfort: nextHomeComfort,
           homeDiscipline: nextHomeDiscipline,
-          homeEventResolved: true,
+          homeEvent: null,
+          homeEventAvailableAt: Date.now() + getRandomEventDelay(),
         });
       } catch (error) {
         console.log('Ошибка откладывания ремонта:', error);
@@ -1177,21 +1220,41 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
 
   const resetHomeBillsForTest = async () => {
-  const nextHomeBills = createDefaultHomeBills();
+    const unpaidBills = homeBills.filter((bill) => bill.status !== 'paid');
 
-  setHomeBills(nextHomeBills);
+    const totalPenalty = unpaidBills.reduce(
+      (sum, bill) => sum + bill.penalty,
+      0
+    );
 
-  if (!isGuest && userIdRef.current) {
-    try {
-      await saveUserGameData({
-        homeBills: nextHomeBills,
-      });
-    } catch (error) {
-      console.log('Ошибка сброса счетов:', error);
+    const nextFinCoin = Math.max(0, finCoin - totalPenalty);
+    const nextHomeBills = createDefaultHomeBills();
+    const nextRefreshAt = Date.now() + HOME_BILLS_REFRESH_DURATION;
+
+    setFinCoin(nextFinCoin);
+    setHomeBills(nextHomeBills);
+    setHomeBillsRefreshAt(nextRefreshAt);
+    setHomeBillsRefreshRemainingSeconds(
+      Math.ceil(HOME_BILLS_REFRESH_DURATION / 1000)
+    );
+
+    if (totalPenalty > 0) {
+      setHomeDiscipline((prev) => Math.max(prev - 8, 0));
+      setHomeComfort((prev) => Math.max(prev - 4, 0));
     }
-  }
-};
 
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          homeBills: nextHomeBills,
+          homeBillsRefreshAt: nextRefreshAt,
+        });
+      } catch (error) {
+        console.log('Ошибка тестового обновления месяца:', error);
+      }
+    }
+  };
   const triggerHomeEventForTest = async () => {
     const nextEvent = getRandomHomeEvent();
 
@@ -1274,6 +1337,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     startMortgage,
     reduceMortgageTime,
     reloadUserData,
+    homeBillsRefreshRemainingSeconds,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
