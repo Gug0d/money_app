@@ -17,6 +17,8 @@ import { MortgageOffer, AiAdviceResponse } from '../../types/finance';
 import { getMortgageAdvice } from '../../services/aiAdvisor';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
+import { scaleRubPrice } from '../../store/gameConfig';
+
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'MortgageOffers'>;
 
@@ -25,15 +27,27 @@ const AI_ADVICE_COST = 20;
 export default function MortgageOffersScreen({ navigation }: Props) {
   const { finCoin, level, spendFinCoin, startMortgage, mortgageStatus } =
     useGame();
-
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [advice, setAdvice] = useState<AiAdviceResponse | null>(null);
   const [loadingAdvice, setLoadingAdvice] = useState(false);
   const [creatingMortgage, setCreatingMortgage] = useState(false);
 
+  const scaledMortgageOffers = useMemo(
+  () =>
+      mortgageOffers.map((offer) => ({
+        ...offer,
+        monthlyPayment: scaleRubPrice(offer.monthlyPayment, level),
+        totalPayment: scaleRubPrice(offer.totalPayment, level),
+        overpayment: scaleRubPrice(offer.overpayment, level),
+        downPayment: scaleRubPrice(offer.downPayment, level),
+      })),
+    [level]
+  );
+
   const selectedOffer = useMemo(
-    () => mortgageOffers.find((offer) => offer.id === selectedOfferId) ?? null,
-    [selectedOfferId]
+    () =>
+      scaledMortgageOffers.find((offer) => offer.id === selectedOfferId) ?? null,
+    [scaledMortgageOffers, selectedOfferId]
   );
 
   const handleAskAi = async () => {
@@ -62,7 +76,7 @@ export default function MortgageOffersScreen({ navigation }: Props) {
       const response = await getMortgageAdvice({
         playerLevel: level,
         playerCoins: finCoin - AI_ADVICE_COST,
-        offers: mortgageOffers,
+        offers: scaledMortgageOffers,
       });
 
       setAdvice(response);
@@ -163,7 +177,7 @@ export default function MortgageOffersScreen({ navigation }: Props) {
           </View>
         )}
 
-        {mortgageOffers.map((offer) => {
+        {scaledMortgageOffers.map((offer) => {
           const isSelected = selectedOfferId === offer.id;
           const isRecommended = advice?.recommendedOfferId === offer.id;
 

@@ -46,7 +46,7 @@ export function useRewardsGame({
     await addRewards(0, amount);
   };
 
-  const spendFinCoin = async (amount: number) => {
+   const spendFinCoin = async (amount: number) => {
     if (amount <= 0) return true;
     if (finCoin < amount) return false;
 
@@ -67,10 +67,25 @@ export function useRewardsGame({
     return true;
   };
 
+  const resetLevelForTest = async () => {
+    setXp(0);
+
+    if (!isGuest && userId) {
+      try {
+        await saveUserGameData({
+          xp: 0,
+        });
+      } catch (error) {
+        console.log('Ошибка сброса уровня:', error);
+      }
+    }
+  };
+
   return {
     addRewards,
     addTestXp,
     addTestCoins,
+    resetLevelForTest,
     spendFinCoin,
   };
 }

@@ -18,6 +18,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import colors from '../../constants/colors';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
+import { scalePrice } from '../../constants/economy';
+import { scaleFinCoinPrice } from '../../store/gameConfig';
+import { jobs } from '../../constants/challenges';
+
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'LifeMain'>;
 
@@ -29,7 +33,7 @@ function formatTime(seconds: number) {
 }
 
 export default function LifeScreen({ navigation }: Props) {
-  const {
+const {
     level,
     xp,
     finCoin,
@@ -39,14 +43,16 @@ export default function LifeScreen({ navigation }: Props) {
     mortgage,
     mortgageStatus,
     mortgageRemainingSeconds,
+    activeJobId,
     isGameLoading,
     addTestXp,
     addTestCoins,
+    resetLevelForTest,
     reduceMortgageTime,
   } = useGame();
 
   const ACCELERATION_SECONDS = 15;
-  const ACCELERATION_COST = 20;
+  const ACCELERATION_COST = scalePrice(20, level);
 
   const nextGoalText =
     level === 1
@@ -71,6 +77,15 @@ export default function LifeScreen({ navigation }: Props) {
             100
         )
       : 0;
+  
+  const activeJob = jobs.find((job) => job.id === activeJobId) ?? null;
+
+  const characterRoleText = activeJob ? activeJob.title : 'Без работы';
+
+  const characterHintText = activeJob
+    ? `Сейчас герой работает: ${activeJob.title}. Выполняй челленджи и получай зарплату.`
+    : 'Устройся на работу в разделе «Челленджи», чтобы получать стабильный доход.';
+
 
   if (isGameLoading) {
     return (
@@ -125,6 +140,7 @@ export default function LifeScreen({ navigation }: Props) {
           <TouchableOpacity
             style={[styles.mapNode, styles.nodeChallenges]}
             activeOpacity={0.88}
+            onPress={() => navigation.navigate('Challenges')}
           >
             <View style={styles.nodeIconCircle}>
               <Ionicons
@@ -181,18 +197,15 @@ export default function LifeScreen({ navigation }: Props) {
             <View style={styles.characterRightLeg} />
 
             <View style={styles.characterInfoCard}>
-              <Text style={styles.characterName}>Артём</Text>
-              <Text style={styles.characterRole}>Начинающий финансист</Text>
-              <Text style={styles.characterHint}>
-                Викторины и решения помогают герою расти, находить работу и
-                улучшать уровень жизни.
-              </Text>
+              <Text style={styles.characterName}></Text>
+              <Text style={styles.characterRole}>{characterRoleText}</Text>
+              <Text style={styles.characterHint}>{characterHintText}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.progressCard}>
-          <Text style={styles.progressTitle}>Возрастной прогресс</Text>
+          <Text style={styles.progressTitle}>Финансовый прогресс</Text>
 
           <View style={styles.progressRow}>
             <View style={styles.progressItem}>
@@ -260,6 +273,14 @@ export default function LifeScreen({ navigation }: Props) {
               onPress={() => addTestCoins(50)}
             >
               <Text style={styles.debugButtonText}>+50 монет</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.debugButton}
+              activeOpacity={0.88}
+              onPress={resetLevelForTest}
+            >
+              <Text style={styles.debugButtonText}>Сброс уровня</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -750,13 +771,15 @@ const styles = StyleSheet.create({
   },
   debugButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   debugButton: {
-    flex: 1,
-    backgroundColor: '#EAF6F3',
+    flexGrow: 1,
+    minWidth: 120,
+    backgroundColor: colors.primary,
     borderRadius: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   debugButtonText: {

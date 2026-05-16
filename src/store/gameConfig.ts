@@ -1,5 +1,38 @@
 import { HomeBill, HomeEvent, MortgageState } from './gameTypes';
 
+export const PRICE_GROWTH_PER_LEVEL = 0.15;
+
+export function getLevelPriceMultiplier(level: number): number {
+  const safeLevel = Math.max(1, level);
+
+  return 1 + (safeLevel - 1) * PRICE_GROWTH_PER_LEVEL;
+}
+
+export function scaleFinCoinPrice(basePrice: number, level: number): number {
+  return Math.round(basePrice * getLevelPriceMultiplier(level));
+}
+
+export function scaleRubPrice(basePrice: number, level: number): number {
+  return Math.round(
+    (basePrice * getLevelPriceMultiplier(level)) / 1000
+  ) * 1000;
+}
+
+function scaleHomeBill(bill: HomeBill, level: number): HomeBill {
+  return {
+    ...bill,
+    amount: scaleFinCoinPrice(bill.amount, level),
+    penalty: scaleFinCoinPrice(bill.penalty, level),
+  };
+}
+
+function scaleHomeEvent(event: HomeEvent, level: number): HomeEvent {
+  return {
+    ...event,
+    cost: scaleFinCoinPrice(event.cost, level),
+  };
+}
+
 export const LEVELS = [
   { level: 1, minXp: 0, maxXp: 100 },
   { level: 2, minXp: 100, maxXp: 250 },
@@ -63,8 +96,11 @@ export const HOME_EVENTS: HomeEvent[] = [
   },
 ];
 
-export const getRandomHomeEvent = () =>
-  HOME_EVENTS[Math.floor(Math.random() * HOME_EVENTS.length)];
+export const getRandomHomeEvent = (level = 1) =>
+  scaleHomeEvent(
+    HOME_EVENTS[Math.floor(Math.random() * HOME_EVENTS.length)],
+    level
+  );
 
 export const getRandomEventDelay = () => {
   const minSeconds = 30;
@@ -75,10 +111,10 @@ export const getRandomEventDelay = () => {
   ) * 1000;
 };
 
-export const createDefaultHomeBills = (): HomeBill[] => {
+export const createDefaultHomeBills = (level = 1): HomeBill[] => {
   const now = Date.now();
 
-  return [
+  const bills: HomeBill[] = [
     {
       id: 1,
       title: 'Электричество',
@@ -124,6 +160,8 @@ export const createDefaultHomeBills = (): HomeBill[] => {
       penaltyApplied: false,
     },
   ];
+
+  return bills.map((bill) => scaleHomeBill(bill, level));
 };
 
 export const getLevelDataByXp = (xp: number) =>

@@ -91,6 +91,29 @@ export type GameContextType = {
   homeEventAvailableAt: number | null;
   homeBillsRefreshRemainingSeconds: number;
 
+  activeJobId: string | null;
+  ownedPropertyId: string | null;
+  activeBoostIds: string[];
+  boostOfferIds: string[];
+  boostOffersRefreshAt: number | null;
+  nextSalaryAvailableAt: number | null;
+
+
+  applyJob: (jobId: string) => Promise<{ success: boolean; message: string }>;
+  receiveSalary: () => Promise<{ success: boolean; message: string }>;
+  buyProperty: (
+    propertyId: string
+  ) => Promise<{ success: boolean; message: string }>;
+  buyBoost: (boostId: string) => Promise<{ success: boolean; message: string }>;
+  skipBoostOffer: (
+    boostId: string
+  ) => Promise<{ success: boolean; message: string }>;
+  runRiskDeal: (
+    dealId: string
+  ) => Promise<{ success: boolean; message: string }>;
+
+
+
   payHomeBill: (billId: number) => Promise<boolean>;
   repairHomeProblem: () => Promise<boolean>;
   postponeHomeProblem: () => Promise<boolean>;
@@ -107,6 +130,7 @@ export type GameContextType = {
   addRewards: (xpToAdd: number, finCoinToAdd: number) => Promise<void>;
   addTestXp: (amount: number) => Promise<void>;
   addTestCoins: (amount: number) => Promise<void>;
+  resetLevelForTest: () => Promise<void>;
   spendFinCoin: (amount: number) => Promise<boolean>;
 
   openDeposit: (

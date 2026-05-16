@@ -34,12 +34,15 @@ import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 
 import { auth } from '../services/firebase';
 import { useGame } from '../store/GameContext';
+import ChallengesScreen from '../screens/life/ChallengesScreen';
+
 
 export type LifeStackParamList = {
   LifeMain: undefined;
   Bank: undefined;
   MortgageOffers: undefined;
   Household: undefined;
+  Challenges: undefined;
 };
 
 export type RootTabParamList = {
@@ -99,6 +102,7 @@ function LifeNavigator() {
         component={MortgageOffersScreen}
       />
       <LifeStack.Screen name="Household" component={HouseholdScreen} />
+      <LifeStack.Screen name="Challenges" component={ChallengesScreen} />
     </LifeStack.Navigator>
   );
 }

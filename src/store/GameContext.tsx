@@ -10,10 +10,14 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 import { auth, db } from '../services/firebase';
+
 import { useDepositGame } from './features/useDepositGame';
 import { useLoanGame } from './features/useLoanGame';
 import { useGameTimers } from './features/useGameTimers';
-
+import { useHouseholdGame } from './features/useHouseholdGame';
+import { useRewardsGame } from './features/useRewardsGame';
+import { useMortgageGame } from './features/useMortgageGame';
+import { useChallengesGame } from './features/useChallengesGame';
 
 import {
   ActiveDeposit,
@@ -30,13 +34,6 @@ import {
   getRandomEventDelay,
 } from './gameConfig';
 
-
-import { useHouseholdGame } from './features/useHouseholdGame';
-
-import { useRewardsGame } from './features/useRewardsGame';
-
-import { useMortgageGame } from './features/useMortgageGame';
-
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -44,11 +41,26 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [finCoin, setFinCoin] = useState(0);
   const [mortgage, setMortgage] = useState<MortgageState>(DEFAULT_MORTGAGE);
 
-  const [activeDeposit, setActiveDeposit] = useState<ActiveDeposit | null>(null);
+  const [activeDeposit, setActiveDeposit] = useState<ActiveDeposit | null>(
+    null
+  );
   const [depositRemainingSeconds, setDepositRemainingSeconds] = useState(0);
 
   const [activeLoan, setActiveLoan] = useState<ActiveLoan | null>(null);
   const [loanRemainingSeconds, setLoanRemainingSeconds] = useState(0);
+
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [ownedPropertyId, setOwnedPropertyId] = useState<string | null>(null);
+
+  const [activeBoostIds, setActiveBoostIds] = useState<string[]>([]);
+  const [boostOfferIds, setBoostOfferIds] = useState<string[]>([]);
+  const [boostOffersRefreshAt, setBoostOffersRefreshAt] = useState<
+    number | null
+  >(null);
+
+  const [nextSalaryAvailableAt, setNextSalaryAvailableAt] = useState<
+    number | null
+  >(null);
 
   const [isGuest, setIsGuest] = useState(true);
   const [isGameLoading, setIsGameLoading] = useState(true);
@@ -62,10 +74,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const saveUserGameData = async (data: Record<string, any>) => {
     if (!userIdRef.current) return;
+
     await updateDoc(doc(db, 'users', userIdRef.current), data);
   };
 
+  const levelData = useMemo(() => getLevelDataByXp(xp), [xp]);
+  const level = levelData.level;
+
+  const getLevelByXp = (xpAmount: number) => {
+    return getLevelDataByXp(xpAmount).level;
+  };
+
   const householdGame = useHouseholdGame({
+    level,
     finCoin,
     setFinCoin,
     isGuest,
@@ -83,13 +104,29 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     saveUserGameData,
   });
 
+  const challengesGame = useChallengesGame({
+    level,
+    finCoin,
 
-  const levelData = useMemo(() => getLevelDataByXp(xp), [xp]);
-  const level = levelData.level;
+    activeJobId,
+    ownedPropertyId,
+    activeBoostIds,
+    boostOfferIds,
+    boostOffersRefreshAt,
+    nextSalaryAvailableAt,
 
-  const getLevelByXp = (xpAmount: number) => {
-    return getLevelDataByXp(xpAmount).level;
-  };
+    setFinCoin,
+    setActiveJobId,
+    setOwnedPropertyId,
+    setActiveBoostIds,
+    setBoostOfferIds,
+    setBoostOffersRefreshAt,
+    setNextSalaryAvailableAt,
+
+    isGuest,
+    userId: userIdRef.current,
+    saveUserGameData,
+  });
 
   const mortgageGame = useMortgageGame({
     level,
@@ -103,7 +140,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     saveUserGameData,
     mortgageCompletedRef,
   });
-  
 
   const depositGame = useDepositGame({
     level,
@@ -117,7 +153,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     saveUserGameData,
     depositCompletedRef,
   });
-
 
   const loanGame = useLoanGame({
     level,
@@ -153,9 +188,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     saveUserGameData,
   });
 
-
   const progressToNextLevel = useMemo(() => {
     const range = levelData.maxXp - levelData.minXp;
+
     if (range <= 0) return 1;
 
     return Math.max(0, Math.min(1, (xp - levelData.minXp) / range));
@@ -165,6 +200,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (level < MORTGAGE_UNLOCK_LEVEL) return 'locked';
     if (mortgage.isCompleted) return 'completed';
     if (mortgage.isActive) return 'active';
+
     return 'available';
   }, [level, mortgage]);
 
@@ -179,6 +215,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     setActiveLoan(null);
     setLoanRemainingSeconds(0);
+
+    setActiveJobId(null);
+    setOwnedPropertyId(null);
+
+    setActiveBoostIds([]);
+    setBoostOfferIds([]);
+    setBoostOffersRefreshAt(null);
+
+    setNextSalaryAvailableAt(null);
 
     setOnboardingCompleted(false);
 
@@ -232,12 +277,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             activeDeposit: null,
             activeLoan: null,
 
-            homeBills: createDefaultHomeBills(),
+            homeBills: createDefaultHomeBills(1),
             homeComfort: 70,
             homeDiscipline: 80,
             homeEvent: null,
             homeEventAvailableAt: Date.now() + getRandomEventDelay(),
             homeBillsRefreshAt: Date.now() + 10 * 60 * 60 * 1000,
+
+            activeJobId: null,
+            ownedPropertyId: null,
+            activeBoostIds: [],
+            boostOfferIds: [],
+            boostOffersRefreshAt: null,
+            nextSalaryAvailableAt: null,
 
             role: currentIsAnonymous ? 'guest' : 'user',
             createdAt: Date.now(),
@@ -263,6 +315,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setActiveDeposit(data.activeDeposit || null);
       setActiveLoan(data.activeLoan || null);
 
+      setActiveJobId(
+        typeof data.activeJobId === 'string' ? data.activeJobId : null
+      );
+
+      setOwnedPropertyId(
+        typeof data.ownedPropertyId === 'string' ? data.ownedPropertyId : null
+      );
+
+      setActiveBoostIds(
+        Array.isArray(data.activeBoostIds) ? data.activeBoostIds : []
+      );
+
+      setBoostOfferIds(
+        Array.isArray(data.boostOfferIds) ? data.boostOfferIds : []
+      );
+
+      setBoostOffersRefreshAt(
+        typeof data.boostOffersRefreshAt === 'number'
+          ? data.boostOffersRefreshAt
+          : null
+      );
+
+      setNextSalaryAvailableAt(
+        typeof data.nextSalaryAvailableAt === 'number'
+          ? data.nextSalaryAvailableAt
+          : null
+      );
+
       householdGame.loadHouseholdState(data);
 
       setOnboardingCompleted(
@@ -275,6 +355,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setIsGameLoading(false);
     } catch (error) {
       console.log('Ошибка инициализации профиля:', error);
+
       resetLocalState();
       setUserDataLoaded(true);
       setIsGameLoading(false);
@@ -306,8 +387,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return unsubAuth;
   }, []);
 
-
-
   useEffect(() => {
     if (!activeLoan) return;
 
@@ -318,9 +397,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [activeLoan, loanGame]);
 
-
   const reloadUserData = async () => {
     const currentUser = auth.currentUser;
+
     if (!currentUser) return;
 
     await loadUserData({
@@ -348,7 +427,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     activeLoan,
     loanRemainingSeconds,
-    
+
     getLevelByXp,
 
     homeBills: householdGame.homeBills,
@@ -357,7 +436,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     homeEvent: householdGame.homeEvent,
     homeEventAvailableAt: householdGame.homeEventAvailableAt,
     homeBillsRefreshRemainingSeconds:
-    householdGame.homeBillsRefreshRemainingSeconds,
+      householdGame.homeBillsRefreshRemainingSeconds,
+
+    activeJobId,
+    ownedPropertyId,
+    activeBoostIds,
+    boostOfferIds,
+    boostOffersRefreshAt,
+    nextSalaryAvailableAt,
+
+    applyJob: challengesGame.applyJob,
+    receiveSalary: challengesGame.receiveSalary,
+    buyProperty: challengesGame.buyProperty,
+    buyBoost: challengesGame.buyBoost,
+    skipBoostOffer: challengesGame.skipBoostOffer,
+    runRiskDeal: challengesGame.runRiskDeal,
 
     payHomeBill: householdGame.payHomeBill,
     repairHomeProblem: householdGame.repairHomeProblem,
@@ -375,8 +468,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     addRewards: rewardsGame.addRewards,
     addTestXp: rewardsGame.addTestXp,
     addTestCoins: rewardsGame.addTestCoins,
+    resetLevelForTest: rewardsGame.resetLevelForTest,
     spendFinCoin: rewardsGame.spendFinCoin,
- 
+
     openDeposit: depositGame.openDeposit,
     reduceDepositTime: depositGame.reduceDepositTime,
 
@@ -387,6 +481,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     startMortgage: mortgageGame.startMortgage,
     reduceMortgageTime: mortgageGame.reduceMortgageTime,
+
     reloadUserData,
   };
 

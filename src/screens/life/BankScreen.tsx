@@ -14,8 +14,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { depositProducts } from '../../constants/depositProducts';
 import { loanProducts } from '../../constants/loanProducts';
+import { scalePrice } from '../../constants/economy';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
+import { scaleFinCoinPrice } from '../../store/gameConfig';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Bank'>;
 type BankTab = 'deposits' | 'loans';
@@ -87,6 +89,25 @@ export default function BankScreen({ navigation }: Props) {
   } = useGame();
 
   const [activeTab, setActiveTab] = useState<BankTab>('deposits');
+
+
+  const scaledDepositProducts = useMemo(
+  () =>
+      depositProducts.map((product) => ({
+        ...product,
+        minAmount: scalePrice(product.minAmount, level),
+      })),
+    [level]
+  );
+
+  const scaledLoanProducts = useMemo(
+    () =>
+      loanProducts.map((product) => ({
+        ...product,
+        amount: scalePrice(product.amount, level),
+      })),
+    [level]
+  );
 
   const depositProgressPercent = useMemo(() => {
     if (!activeDeposit) return 0;
@@ -595,7 +616,7 @@ export default function BankScreen({ navigation }: Props) {
 
         <View style={styles.section}>
           {activeTab === 'deposits' &&
-            depositProducts.map((product) => {
+            scaledDepositProducts.map((product) => {
               const isUnlocked = level >= product.requiredLevel;
               const hasActiveDeposit = !!activeDeposit;
 
@@ -730,7 +751,7 @@ export default function BankScreen({ navigation }: Props) {
             })}
 
           {activeTab === 'loans' &&
-            loanProducts.map((product) => {
+            scaledLoanProducts.map((product) => { 
               const isUnlocked = level >= product.requiredLevel;
               const hasActiveLoan = !!activeLoan;
 

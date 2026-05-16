@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   HOME_BILLS_REFRESH_DURATION,
   createDefaultHomeBills,
@@ -8,6 +8,7 @@ import {
 import { HomeBill, HomeEvent } from '../gameTypes';
 
 type UseHouseholdGameParams = {
+  level: number;
   finCoin: number;
   setFinCoin: React.Dispatch<React.SetStateAction<number>>;
   isGuest: boolean;
@@ -16,6 +17,7 @@ type UseHouseholdGameParams = {
 };
 
 export function useHouseholdGame({
+  level,
   finCoin,
   setFinCoin,
   isGuest,
@@ -23,7 +25,7 @@ export function useHouseholdGame({
   saveUserGameData,
 }: UseHouseholdGameParams) {
   const [homeBills, setHomeBills] = useState<HomeBill[]>(() =>
-    createDefaultHomeBills()
+    createDefaultHomeBills(level)
   );
 
   const [homeComfort, setHomeComfort] = useState(70);
@@ -44,8 +46,60 @@ export function useHouseholdGame({
     setHomeBillsRefreshRemainingSeconds,
   ] = useState(Math.ceil(HOME_BILLS_REFRESH_DURATION / 1000));
 
+  const previousLevelRef = useRef(level);
+
+  useEffect(() => {
+    if (previousLevelRef.current === level) {
+      return;
+    }
+
+    previousLevelRef.current = level;
+
+    const nextHomeBills = createDefaultHomeBills(level).map((newBill) => {
+      const oldBill = homeBills.find((bill) => bill.id === newBill.id);
+
+      if (!oldBill) {
+        return newBill;
+      }
+
+      return {
+        ...newBill,
+        status: oldBill.status,
+        dueAt: oldBill.dueAt,
+        penaltyApplied: oldBill.penaltyApplied,
+      };
+    });
+
+    const nextHomeEvent = homeEvent
+      ? {
+          ...getRandomHomeEvent(level),
+          id: homeEvent.id,
+          title: homeEvent.title,
+          description: homeEvent.description,
+          comfortReward: homeEvent.comfortReward,
+          disciplineReward: homeEvent.disciplineReward,
+          postponeComfortPenalty: homeEvent.postponeComfortPenalty,
+          postponeDisciplinePenalty: homeEvent.postponeDisciplinePenalty,
+          icon: homeEvent.icon,
+        }
+      : null;
+
+    setHomeBills(nextHomeBills);
+
+    if (nextHomeEvent) {
+      setHomeEvent(nextHomeEvent);
+    }
+
+    if (!isGuest && userId) {
+      saveUserGameData({
+        homeBills: nextHomeBills,
+        homeEvent: nextHomeEvent,
+      });
+    }
+  }, [level]);
+
   const resetHouseholdState = () => {
-    setHomeBills(createDefaultHomeBills());
+    setHomeBills(createDefaultHomeBills(level));
     setHomeComfort(70);
     setHomeDiscipline(80);
     setHomeEvent(null);
@@ -58,7 +112,9 @@ export function useHouseholdGame({
 
   const loadHouseholdState = (data: any) => {
     setHomeBills(
-      Array.isArray(data.homeBills) ? data.homeBills : createDefaultHomeBills()
+      Array.isArray(data.homeBills)
+        ? data.homeBills
+        : createDefaultHomeBills(level)
     );
 
     setHomeComfort(
@@ -201,7 +257,7 @@ export function useHouseholdGame({
     );
 
     const nextFinCoin = Math.max(0, finCoin - totalPenalty);
-    const nextHomeBills = createDefaultHomeBills();
+    const nextHomeBills = createDefaultHomeBills(level);
     const nextRefreshAt = Date.now() + HOME_BILLS_REFRESH_DURATION;
 
     setFinCoin(nextFinCoin);
@@ -226,7 +282,7 @@ export function useHouseholdGame({
   };
 
   const triggerHomeEventForTest = async () => {
-    const nextEvent = getRandomHomeEvent();
+    const nextEvent = getRandomHomeEvent(level);
 
     setHomeEvent(nextEvent);
     setHomeEventAvailableAt(null);
@@ -255,7 +311,7 @@ export function useHouseholdGame({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [homeBillsRefreshAt, homeBills, finCoin, isGuest]);
+  }, [homeBillsRefreshAt, homeBills, finCoin, isGuest, level]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -266,7 +322,7 @@ export function useHouseholdGame({
 
       if (now < homeEventAvailableAt) return;
 
-      const nextEvent = getRandomHomeEvent();
+      const nextEvent = getRandomHomeEvent(level);
 
       setHomeEvent(nextEvent);
       setHomeEventAvailableAt(null);
@@ -280,7 +336,7 @@ export function useHouseholdGame({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [homeEvent, homeEventAvailableAt, isGuest, userId]);
+  }, [homeEvent, homeEventAvailableAt, isGuest, userId, level]);
 
   return {
     homeBills,
