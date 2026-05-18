@@ -64,7 +64,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const [isGuest, setIsGuest] = useState(true);
   const [isGameLoading, setIsGameLoading] = useState(true);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [viewedTutorialIds, setViewedTutorialIds] = useState<string[]>([]);
   const [userDataLoaded, setUserDataLoaded] = useState(false);
   const [mortgageRemainingSeconds, setMortgageRemainingSeconds] = useState(0);
 
@@ -225,7 +225,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     setNextSalaryAvailableAt(null);
 
-    setOnboardingCompleted(false);
+    setViewedTutorialIds([]);
 
     householdGame.resetHouseholdState();
 
@@ -271,7 +271,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             email: currentEmail || '',
             xp: 0,
             finCoin: 0,
-            onboardingCompleted: false,
+            viewedTutorialIds: [],
 
             mortgage: DEFAULT_MORTGAGE,
             activeDeposit: null,
@@ -345,10 +345,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       householdGame.loadHouseholdState(data);
 
-      setOnboardingCompleted(
-        typeof data.onboardingCompleted === 'boolean'
-          ? data.onboardingCompleted
-          : false
+      setViewedTutorialIds(
+        Array.isArray(data.viewedTutorialIds) ? data.viewedTutorialIds : []
       );
 
       setUserDataLoaded(true);
@@ -410,6 +408,38 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const markTutorialViewed = async (tutorialId: string) => {
+    const nextViewedTutorialIds = viewedTutorialIds.includes(tutorialId)
+      ? viewedTutorialIds
+      : [...viewedTutorialIds, tutorialId];
+
+    setViewedTutorialIds(nextViewedTutorialIds);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          viewedTutorialIds: nextViewedTutorialIds,
+        });
+      } catch (error) {
+        console.log('Ошибка сохранения обучающей подсказки:', error);
+      }
+    }
+  };
+
+  const resetTutorialProgress = async () => {
+  setViewedTutorialIds([]);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          viewedTutorialIds: [],
+        });
+      } catch (error) {
+        console.log('Ошибка сброса обучения:', error);
+      }
+    }
+  };
+
   const value: GameContextType = {
     xp,
     finCoin,
@@ -436,7 +466,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     homeEvent: householdGame.homeEvent,
     homeEventAvailableAt: householdGame.homeEventAvailableAt,
     homeBillsRefreshRemainingSeconds:
-      householdGame.homeBillsRefreshRemainingSeconds,
+    householdGame.homeBillsRefreshRemainingSeconds,
 
     activeJobId,
     ownedPropertyId,
@@ -460,10 +490,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     isGuest,
     isGameLoading,
-    onboardingCompleted,
-    userDataLoaded,
 
-    setOnboardingCompleted,
+    userDataLoaded,
+    viewedTutorialIds,
+
+    markTutorialViewed,
+
+    resetTutorialProgress,
 
     addRewards: rewardsGame.addRewards,
     addTestXp: rewardsGame.addTestXp,

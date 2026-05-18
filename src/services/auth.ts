@@ -34,8 +34,8 @@ export async function registerWithEmail(
     email,
     xp: 0,
     finCoin: 0,
-    onboardingCompleted: false, // важно
     mortgage: DEFAULT_MORTGAGE,
+    viewedTutorialIds: [],
     role: 'user',
     createdAt: Date.now(),
   });

@@ -16,11 +16,13 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import colors from '../../constants/colors';
+import TutorialTarget from '../../components/tutorial/TutorialTarget';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
 import { scalePrice } from '../../constants/economy';
 import { scaleFinCoinPrice } from '../../store/gameConfig';
 import { jobs } from '../../constants/challenges';
+
 
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'LifeMain'>;
@@ -33,7 +35,7 @@ function formatTime(seconds: number) {
 }
 
 export default function LifeScreen({ navigation }: Props) {
-const {
+  const {
     level,
     xp,
     finCoin,
@@ -51,6 +53,7 @@ const {
     reduceMortgageTime,
   } = useGame();
 
+  
   const ACCELERATION_SECONDS = 15;
   const ACCELERATION_COST = scalePrice(20, level);
 
@@ -118,7 +121,8 @@ const {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.worldCard}>
+        <TutorialTarget id="life-main">
+          <View style={styles.worldCard}>
           <View style={styles.backgroundCloudOne} />
           <View style={styles.backgroundCloudTwo} />
           <View style={styles.backgroundHillLeft} />
@@ -203,7 +207,7 @@ const {
             </View>
           </View>
         </View>
-
+      </TutorialTarget>
         <View style={styles.progressCard}>
           <Text style={styles.progressTitle}>Финансовый прогресс</Text>
 

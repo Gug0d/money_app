@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
+import TutorialTarget from '../../components/tutorial/TutorialTarget';
 
 const tips = [
   {
@@ -59,39 +60,41 @@ export default function AdvisorScreen() {
           </Text>
         </View>
 
-        <View style={styles.heroCard}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.avatarWrap}>
-              <FontAwesome5 name="robot" size={28} color={colors.primary} />
+        <TutorialTarget id="advisor-screen">
+          <View style={styles.heroCard}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.avatarWrap}>
+                <FontAwesome5 name="robot" size={28} color={colors.primary} />
+              </View>
+
+              <View style={styles.heroTextBlock}>
+                <Text style={styles.heroName}>Fin Advisor</Text>
+                <Text style={styles.heroRole}>Твой помощник по финансам</Text>
+              </View>
             </View>
 
-            <View style={styles.heroTextBlock}>
-              <Text style={styles.heroName}>Fin Advisor</Text>
-              <Text style={styles.heroRole}>Твой помощник по финансам</Text>
+            <Text style={styles.heroDescription}>
+              Я подскажу, как лучше управлять деньгами, избегать лишних трат и
+              принимать более безопасные финансовые решения.
+            </Text>
+
+            <View style={styles.heroStatsRow}>
+              <View style={styles.heroStatChip}>
+                <Ionicons name="flash" size={16} color="#D9A520" />
+                <Text style={styles.heroStatText}>+ советы каждый день</Text>
+              </View>
+
+              <View style={styles.heroStatChip}>
+                <MaterialCommunityIcons
+                  name="brain"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text style={styles.heroStatText}>Практические подсказки</Text>
+              </View>
             </View>
           </View>
-
-          <Text style={styles.heroDescription}>
-            Я подскажу, как лучше управлять деньгами, избегать лишних трат и
-            принимать более безопасные финансовые решения.
-          </Text>
-
-          <View style={styles.heroStatsRow}>
-            <View style={styles.heroStatChip}>
-              <Ionicons name="flash" size={16} color="#D9A520" />
-              <Text style={styles.heroStatText}>+ советы каждый день</Text>
-            </View>
-
-            <View style={styles.heroStatChip}>
-              <MaterialCommunityIcons
-                name="brain"
-                size={16}
-                color={colors.primary}
-              />
-              <Text style={styles.heroStatText}>Практические подсказки</Text>
-            </View>
-          </View>
-        </View>
+        </TutorialTarget>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Совет дня</Text>

@@ -8,9 +8,11 @@ import {
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../../constants/colors';
-import { Mission } from '../../types/Mission';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import colors from '../../constants/colors';
+import TutorialTarget from '../../components/tutorial/TutorialTarget';
+import { Mission } from '../../types/Mission';
 import { MissionsStackParamList } from './MissionDetailsScreen';
 
 type Props = NativeStackScreenProps<MissionsStackParamList, 'MissionsList'>;
@@ -30,7 +32,8 @@ const missions: Mission[] = [
         id: 'm001_o1',
         text: 'Потратить всё сразу на развлечения',
         isCorrect: false,
-        explanation: 'Так ты не сможешь контролировать расходы и ничего не отложишь.',
+        explanation:
+          'Так ты не сможешь контролировать расходы и ничего не отложишь.',
         xp: 5,
         finCoin: 2,
       },
@@ -66,7 +69,8 @@ const missions: Mission[] = [
         id: 'm002_o1',
         text: 'Взять дорогой кредит на новый телефон без расчётов',
         isCorrect: false,
-        explanation: 'Импульсивный кредит может создать лишнюю долговую нагрузку.',
+        explanation:
+          'Импульсивный кредит может создать лишнюю долговую нагрузку.',
         xp: 10,
         finCoin: 5,
       },
@@ -74,7 +78,8 @@ const missions: Mission[] = [
         id: 'm002_o2',
         text: 'Использовать часть финансовой подушки или выбрать более доступное решение',
         isCorrect: true,
-        explanation: 'Финансовая подушка нужна именно для непредвиденных ситуаций.',
+        explanation:
+          'Финансовая подушка нужна именно для непредвиденных ситуаций.',
         xp: 45,
         finCoin: 20,
       },
@@ -82,7 +87,8 @@ const missions: Mission[] = [
         id: 'm002_o3',
         text: 'Попросить деньги у всех знакомых без плана возврата',
         isCorrect: false,
-        explanation: 'Это неустойчивое решение и может привести к проблемам.',
+        explanation:
+          'Это неустойчивое решение и может привести к проблемам.',
         xp: 10,
         finCoin: 5,
       },
@@ -110,7 +116,8 @@ const missions: Mission[] = [
         id: 'm003_o2',
         text: 'Покупать только на проверенных сайтах и никому не сообщать данные карты',
         isCorrect: true,
-        explanation: 'Это базовое правило безопасности при онлайн-оплате.',
+        explanation:
+          'Это базовое правило безопасности при онлайн-оплате.',
         xp: 35,
         finCoin: 15,
       },
@@ -118,7 +125,8 @@ const missions: Mission[] = [
         id: 'm003_o3',
         text: 'Хранить пин-код в заметках без защиты',
         isCorrect: false,
-        explanation: 'Так данные карты могут легко попасть к посторонним.',
+        explanation:
+          'Так данные карты могут легко попасть к посторонним.',
         xp: 5,
         finCoin: 2,
       },
@@ -146,7 +154,8 @@ const missions: Mission[] = [
         id: 'm004_o2',
         text: 'Сравнить предложения, посчитать переплату и проверить, потянешь ли платёж',
         isCorrect: true,
-        explanation: 'Перед кредитом всегда нужно оценить полную стоимость и свою нагрузку.',
+        explanation:
+          'Перед кредитом всегда нужно оценить полную стоимость и свою нагрузку.',
         xp: 60,
         finCoin: 35,
       },
@@ -154,7 +163,8 @@ const missions: Mission[] = [
         id: 'm004_o3',
         text: 'Взять максимальную сумму, которую одобрят',
         isCorrect: false,
-        explanation: 'Одобренная сумма не означает, что она безопасна для бюджета.',
+        explanation:
+          'Одобренная сумма не означает, что она безопасна для бюджета.',
         xp: 10,
         finCoin: 5,
       },
@@ -188,14 +198,15 @@ const getDifficultyStyles = (difficulty: Mission['difficulty']) => {
 };
 
 export default function MissionsScreen({ navigation }: Props) {
-  const renderMission = ({ item }: { item: Mission }) => {
+  const renderMission = ({ item, index }: { item: Mission; index: number }) => {
     const difficultyStyle = getDifficultyStyles(item.difficulty);
 
-    return (
+    const card = (
       <TouchableOpacity style={styles.card} activeOpacity={0.9}>
         <View style={styles.cardTopRow}>
           <View style={styles.titleBlock}>
             <Text style={styles.cardTitle}>{item.title}</Text>
+
             <View style={styles.typeRow}>
               <MaterialCommunityIcons
                 name={
@@ -206,6 +217,7 @@ export default function MissionsScreen({ navigation }: Props) {
                 size={16}
                 color={colors.primary}
               />
+
               <Text style={styles.cardType}>
                 {item.type === 'quiz' ? 'Квиз' : 'Сценарий выбора'}
               </Text>
@@ -245,12 +257,24 @@ export default function MissionsScreen({ navigation }: Props) {
         <TouchableOpacity
           style={styles.startButton}
           activeOpacity={0.85}
-          onPress={() => navigation.navigate('MissionDetails', { mission: item })}
+          onPress={() =>
+            navigation.navigate('MissionDetails', { mission: item })
+          }
         >
           <Text style={styles.startButtonText}>Начать</Text>
         </TouchableOpacity>
       </TouchableOpacity>
     );
+
+    if (index === 0) {
+      return (
+        <TutorialTarget id="mission-first-card">
+          {card}
+        </TutorialTarget>
+      );
+    }
+
+    return card;
   };
 
   return (

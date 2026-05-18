@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { LifeStackParamList } from '../../navigation/AppNavigator';
 import { useGame } from '../../store/GameContext';
+import TutorialTarget from '../../components/tutorial/TutorialTarget';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Household'>;
 
@@ -80,7 +81,13 @@ export default function HouseholdScreen({ navigation }: Props) {
           <TouchableOpacity
             style={styles.backButton}
             activeOpacity={0.85}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                navigation.navigate('LifeMain');
+              }
+            }}
           >
             <Text style={styles.backButtonText}>‹</Text>
           </TouchableOpacity>
@@ -91,126 +98,134 @@ export default function HouseholdScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <View style={styles.homeCard}>
-          <Text style={styles.homeEmoji}>🏠</Text>
-          <Text style={styles.title}>Дом и быт</Text>
-          <Text style={styles.subtitle}>
-            Оплачивай счета вовремя, избегай штрафов и поддерживай комфорт.
-          </Text>
-        </View>
-
-        <View style={styles.progressCard}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.sectionTitle}>Счета месяца</Text>
-            <Text style={styles.progressText}>{progress}%</Text>
+        <TutorialTarget id="household-main">
+          <View style={styles.homeCard}>
+            <Text style={styles.homeEmoji}>🏠</Text>
+            <Text style={styles.title}>Дом и быт</Text>
+            <Text style={styles.subtitle}>
+              Оплачивай счета вовремя, избегай штрафов и поддерживай комфорт.
+            </Text>
           </View>
+        </TutorialTarget>
 
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
-          </View>
+        <TutorialTarget id="household-payments">
+          <View>
+            <View style={styles.progressCard}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.sectionTitle}>Счета месяца</Text>
+                <Text style={styles.progressText}>{progress}%</Text>
+              </View>
 
-          <Text style={styles.timerText}>
-            До обновления: {formatLongTime(homeBillsRefreshRemainingSeconds)}
-          </Text>
-        </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progress}%` }]} />
+              </View>
 
-        {homeBills.map((bill) => {
-          const isPaid = bill.status === 'paid';
-          const isWarning = bill.status === 'warning';
-          const isOverdue = bill.status === 'overdue';
+              <Text style={styles.timerText}>
+                До обновления: {formatLongTime(homeBillsRefreshRemainingSeconds)}
+              </Text>
+            </View>
 
-          return (
-            <View key={bill.id} style={styles.billCard}>
-              <View style={styles.billLeft}>
-                <Text style={styles.billIcon}>{bill.icon}</Text>
+            {homeBills.map((bill) => {
+              const isPaid = bill.status === 'paid';
+              const isWarning = bill.status === 'warning';
+              const isOverdue = bill.status === 'overdue';
 
-                <View style={styles.billInfo}>
-                  <Text style={styles.billTitle}>{bill.title}</Text>
-                  <Text style={styles.billDue}>{bill.due}</Text>
+              return (
+                <View key={bill.id} style={styles.billCard}>
+                  <View style={styles.billLeft}>
+                    <Text style={styles.billIcon}>{bill.icon}</Text>
 
-                  {isOverdue && (
-                    <Text style={styles.penaltyText}>
-                      Штраф: {bill.penalty} FC
+                    <View style={styles.billInfo}>
+                      <Text style={styles.billTitle}>{bill.title}</Text>
+                      <Text style={styles.billDue}>{bill.due}</Text>
+
+                      {isOverdue && (
+                        <Text style={styles.penaltyText}>
+                          Штраф: {bill.penalty} FC
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.billRight}>
+                    <Text style={styles.billAmount}>{bill.amount} FC</Text>
+
+                    <Text
+                      style={[
+                        styles.billStatus,
+                        isPaid && styles.statusPaid,
+                        isWarning && styles.statusWarning,
+                        isOverdue && styles.statusOverdue,
+                      ]}
+                    >
+                      {isPaid
+                        ? 'Оплачено'
+                        : isWarning
+                        ? 'Скоро срок'
+                        : isOverdue
+                        ? 'Просрочено'
+                        : 'К оплате'}
                     </Text>
-                  )}
+
+                    {!isPaid && (
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        style={styles.smallButton}
+                        onPress={() => handlePayBill(bill.id)}
+                      >
+                        <Text style={styles.smallButtonText}>Оплатить</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
+              );
+            })}
+          </View>
+        </TutorialTarget>
 
-              <View style={styles.billRight}>
-                <Text style={styles.billAmount}>{bill.amount} FC</Text>
+        <TutorialTarget id="household-events">
+          {homeEvent ? (
+            <View style={styles.eventCard}>
+              <Text style={styles.eventLabel}>Событие дома</Text>
 
-                <Text
-                  style={[
-                    styles.billStatus,
-                    isPaid && styles.statusPaid,
-                    isWarning && styles.statusWarning,
-                    isOverdue && styles.statusOverdue,
-                  ]}
+              <Text style={styles.eventTitle}>
+                {homeEvent.icon} {homeEvent.title}
+              </Text>
+
+              <Text style={styles.eventText}>{homeEvent.description}</Text>
+
+              <Text style={styles.eventText}>
+                Стоимость решения: {homeEvent.cost} FC
+              </Text>
+
+              <View style={styles.eventActions}>
+                <TouchableOpacity
+                  style={styles.eventPrimaryButton}
+                  activeOpacity={0.85}
+                  onPress={handleRepair}
                 >
-                  {isPaid
-                    ? 'Оплачено'
-                    : isWarning
-                    ? 'Скоро срок'
-                    : isOverdue
-                    ? 'Просрочено'
-                    : 'К оплате'}
-                </Text>
+                  <Text style={styles.eventPrimaryText}>Решить</Text>
+                </TouchableOpacity>
 
-                {!isPaid && (
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={styles.smallButton}
-                    onPress={() => handlePayBill(bill.id)}
-                  >
-                    <Text style={styles.smallButtonText}>Оплатить</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={styles.eventSecondaryButton}
+                  activeOpacity={0.85}
+                  onPress={handlePostpone}
+                >
+                  <Text style={styles.eventSecondaryText}>Позже</Text>
+                </TouchableOpacity>
               </View>
             </View>
-          );
-        })}
-
-        {homeEvent ? (
-          <View style={styles.eventCard}>
-            <Text style={styles.eventLabel}>Событие дома</Text>
-
-            <Text style={styles.eventTitle}>
-              {homeEvent.icon} {homeEvent.title}
-            </Text>
-
-            <Text style={styles.eventText}>{homeEvent.description}</Text>
-
-            <Text style={styles.eventText}>
-              Стоимость решения: {homeEvent.cost} FC
-            </Text>
-
-            <View style={styles.eventActions}>
-              <TouchableOpacity
-                style={styles.eventPrimaryButton}
-                activeOpacity={0.85}
-                onPress={handleRepair}
-              >
-                <Text style={styles.eventPrimaryText}>Решить</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.eventSecondaryButton}
-                activeOpacity={0.85}
-                onPress={handlePostpone}
-              >
-                <Text style={styles.eventSecondaryText}>Позже</Text>
-              </TouchableOpacity>
+          ) : (
+            <View style={styles.eventCard}>
+              <Text style={styles.eventLabel}>Событие дома</Text>
+              <Text style={styles.eventTitle}>⏳ Пока всё спокойно</Text>
+              <Text style={styles.eventText}>
+                Иногда дома появляются неожиданные расходы. Будь готов.
+              </Text>
             </View>
-          </View>
-        ) : (
-          <View style={styles.eventCard}>
-            <Text style={styles.eventLabel}>Событие дома</Text>
-            <Text style={styles.eventTitle}>⏳ Пока всё спокойно</Text>
-            <Text style={styles.eventText}>
-              Иногда дома появляются неожиданные расходы. Будь готов.
-            </Text>
-          </View>
-        )}
+          )}
+        </TutorialTarget>
 
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
@@ -514,42 +529,44 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#0F7D73',
+    backgroundColor: '#F7F1E4',
     borderRadius: 22,
     padding: 16,
+    alignItems: 'center',
     marginHorizontal: 4,
   },
   statValue: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#F2C84B',
-    marginBottom: 4,
+    color: '#0A4F4A',
   },
   statLabel: {
-    fontSize: 14,
+    marginTop: 4,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#F7F1E4',
+    color: '#39635F',
   },
   testBlock: {
-    marginTop: 6,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: '#084F49',
+    borderRadius: 24,
     padding: 16,
+    marginTop: 4,
   },
   testTitle: {
     fontSize: 18,
     fontWeight: '900',
-    marginBottom: 10,
-    color: '#0A4F4A',
+    color: '#F7F1E4',
+    marginBottom: 12,
   },
   testButton: {
-    backgroundColor: '#F2C84B',
-    borderRadius: 12,
-    paddingVertical: 12,
-    marginBottom: 10,
+    backgroundColor: '#F7F1E4',
+    borderRadius: 16,
+    paddingVertical: 13,
     alignItems: 'center',
+    marginBottom: 10,
   },
   testButtonText: {
+    fontSize: 15,
     fontWeight: '900',
     color: '#0A4F4A',
   },

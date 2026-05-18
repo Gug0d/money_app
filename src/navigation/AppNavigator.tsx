@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   NavigationContainer,
   NavigatorScreenParams,
+  useNavigation,
 } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -13,9 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
+
 import HouseholdScreen from '../screens/life/HouseholdScreen';
-
-
 import HomeScreen from '../screens/home/HomeScreen';
 import MissionsScreen from '../screens/missions/MissionsScreen';
 import MissionDetailsScreen, {
@@ -26,16 +26,20 @@ import BankScreen from '../screens/life/BankScreen';
 import MortgageOffersScreen from '../screens/life/MortgageOffersScreen';
 import AdvisorScreen from '../screens/advisor/AdvisorScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import ChallengesScreen from '../screens/life/ChallengesScreen';
 
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
-import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
+
+import TutorialFlowModal from '../components/tutorial/TutorialFlowModal';
+import {
+  TutorialActionTarget,
+  getNextTutorialFlowForLevel,
+} from '../data/tutorials';
 
 import { auth } from '../services/firebase';
 import { useGame } from '../store/GameContext';
-import ChallengesScreen from '../screens/life/ChallengesScreen';
-
 
 export type LifeStackParamList = {
   LifeMain: undefined;
@@ -61,8 +65,7 @@ export type AuthStackParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
-  Onboarding: undefined;
-  Main: undefined;
+  Main: NavigatorScreenParams<RootTabParamList> | undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -114,81 +117,190 @@ function MainTabs({
   guestMode: boolean;
   exitGuestMode: () => void;
 }) {
+  const navigation = useNavigation<any>();
+
+  const { level, isGameLoading, viewedTutorialIds, markTutorialViewed } =
+    useGame();
+
+  const [tutorialVisible, setTutorialVisible] = useState(false);
+
+  const activeTutorialFlow = useMemo(
+    () => getNextTutorialFlowForLevel(level, viewedTutorialIds),
+    [level, viewedTutorialIds]
+  );
+
+  useEffect(() => {
+    if (!isGameLoading && activeTutorialFlow) {
+      setTutorialVisible(true);
+    }
+  }, [isGameLoading, activeTutorialFlow]);
+
+  const handleNavigateToTutorialTarget = (target: TutorialActionTarget) => {
+    switch (target) {
+      case 'home':
+        navigation.navigate('Main', {
+          screen: 'Home',
+        });
+        break;
+
+      case 'life':
+        navigation.navigate('Main', {
+          screen: 'Life',
+          params: {
+            screen: 'LifeMain',
+          },
+        });
+        break;
+
+      case 'household':
+        navigation.navigate('Main', {
+          screen: 'Life',
+          params: {
+            screen: 'Household',
+          },
+        });
+        break;
+
+      case 'challenges':
+        navigation.navigate('Main', {
+          screen: 'Life',
+          params: {
+            screen: 'Challenges',
+          },
+        });
+        break;
+
+      case 'bank':
+        navigation.navigate('Main', {
+          screen: 'Life',
+          params: {
+            screen: 'Bank',
+          },
+        });
+        break;
+
+      case 'missions':
+        navigation.navigate('Main', {
+          screen: 'MissionsTab',
+          params: {
+            screen: 'MissionsList',
+          },
+        });
+        break;
+
+      case 'advisor':
+        navigation.navigate('Main', {
+          screen: 'Advisor',
+        });
+        break;
+
+      case 'none':
+      default:
+        break;
+    }
+  };
+
+  const handleFinishTutorial = async () => {
+    if (activeTutorialFlow) {
+      await markTutorialViewed(activeTutorialFlow.id);
+    }
+
+    setTutorialVisible(false);
+  };
+
   return (
-    <Tab.Navigator
-      initialRouteName="Home"
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarActiveTintColor: '#0C6B61',
-        tabBarInactiveTintColor: '#0C6B61',
-        tabBarStyle: {
-          backgroundColor: '#F4EEDB',
-          height: 86,
-          paddingTop: 8,
-          paddingBottom: 8,
-          borderTopWidth: 0,
-        },
-        tabBarLabelStyle: {
-          fontSize: 14,
-          fontWeight: '600',
-        },
-        tabBarIcon: ({ color, size }) => {
-          switch (route.name) {
-            case 'Life':
-              return <Ionicons name="business" size={size} color={color} />;
-            case 'MissionsTab':
-              return (
-                <Ionicons name="checkmark-circle" size={size} color={color} />
-              );
-            case 'Home':
-              return <Ionicons name="home" size={size} color={color} />;
-            case 'Advisor':
-              return (
-                <Ionicons
-                  name="chatbubble-ellipses"
-                  size={size}
-                  color={color}
-                />
-              );
-            case 'Profile':
-              return (
-                <FontAwesome5 name="user-alt" size={size - 2} color={color} />
-              );
-            default:
-              return <Ionicons name="ellipse" size={size} color={color} />;
-          }
-        },
-      })}
-    >
-      <Tab.Screen
-        name="Life"
-        component={LifeNavigator}
-        options={{ title: 'Жизнь' }}
+    <>
+      <Tab.Navigator
+        initialRouteName="Home"
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarActiveTintColor: '#0C6B61',
+          tabBarInactiveTintColor: '#0C6B61',
+          tabBarStyle: {
+            backgroundColor: '#F4EEDB',
+            height: 86,
+            paddingTop: 8,
+            paddingBottom: 8,
+            borderTopWidth: 0,
+          },
+          tabBarLabelStyle: {
+            fontSize: 14,
+            fontWeight: '600',
+          },
+          tabBarIcon: ({ color, size }) => {
+            switch (route.name) {
+              case 'Life':
+                return <Ionicons name="business" size={size} color={color} />;
+
+              case 'MissionsTab':
+                return (
+                  <Ionicons name="checkmark-circle" size={size} color={color} />
+                );
+
+              case 'Home':
+                return <Ionicons name="home" size={size} color={color} />;
+
+              case 'Advisor':
+                return (
+                  <Ionicons
+                    name="chatbubble-ellipses"
+                    size={size}
+                    color={color}
+                  />
+                );
+
+              case 'Profile':
+                return (
+                  <FontAwesome5 name="user-alt" size={size - 2} color={color} />
+                );
+
+              default:
+                return <Ionicons name="ellipse" size={size} color={color} />;
+            }
+          },
+        })}
+      >
+        <Tab.Screen
+          name="Life"
+          component={LifeNavigator}
+          options={{ title: 'Жизнь' }}
+        />
+
+        <Tab.Screen
+          name="MissionsTab"
+          component={MissionsNavigator}
+          options={{ title: 'Цели' }}
+        />
+
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{ title: 'Дом' }}
+        />
+
+        <Tab.Screen
+          name="Advisor"
+          component={AdvisorScreen}
+          options={{ title: 'Советы' }}
+        />
+
+        <Tab.Screen name="Profile" options={{ title: 'Профиль' }}>
+          {() => (
+            <ProfileScreen
+              guestMode={guestMode}
+              exitGuestMode={exitGuestMode}
+            />
+          )}
+        </Tab.Screen>
+      </Tab.Navigator>
+
+      <TutorialFlowModal
+        visible={tutorialVisible}
+        flow={activeTutorialFlow}
+        onFinish={handleFinishTutorial}
+        onNavigateToTarget={handleNavigateToTutorialTarget}
       />
-      <Tab.Screen
-        name="MissionsTab"
-        component={MissionsNavigator}
-        options={{ title: 'Цели' }}
-      />
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: 'Дом' }}
-      />
-      <Tab.Screen
-        name="Advisor"
-        component={AdvisorScreen}
-        options={{ title: 'Советы' }}
-      />
-      <Tab.Screen name="Profile" options={{ title: 'Профиль' }}>
-        {() => (
-          <ProfileScreen
-            guestMode={guestMode}
-            exitGuestMode={exitGuestMode}
-          />
-        )}
-      </Tab.Screen>
-    </Tab.Navigator>
+    </>
   );
 }
 
@@ -198,7 +310,9 @@ function AuthNavigator({ onGuestLogin }: { onGuestLogin: () => void }) {
       <AuthStack.Screen name="Welcome">
         {(props) => <WelcomeScreen {...props} onGuestLogin={onGuestLogin} />}
       </AuthStack.Screen>
+
       <AuthStack.Screen name="Login" component={LoginScreen} />
+
       <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>
   );
@@ -209,7 +323,7 @@ export default function AppNavigator() {
   const [authLoading, setAuthLoading] = useState(true);
   const [guestMode, setGuestMode] = useState(false);
 
-  const { onboardingCompleted, isGameLoading } = useGame();
+  const { isGameLoading } = useGame();
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
@@ -240,8 +354,6 @@ export default function AppNavigator() {
           <RootStack.Screen name="Auth">
             {() => <AuthNavigator onGuestLogin={() => setGuestMode(true)} />}
           </RootStack.Screen>
-        ) : !onboardingCompleted ? (
-          <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
           <RootStack.Screen name="Main">
             {() => (

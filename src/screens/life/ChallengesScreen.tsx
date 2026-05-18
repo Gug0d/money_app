@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import colors from '../../constants/colors';
+import TutorialTarget from '../../components/tutorial/TutorialTarget';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
 import {
@@ -147,13 +148,22 @@ export default function ChallengesScreen({ navigation }: Props) {
     );
   };
 
+  const handleGoBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('LifeMain');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           activeOpacity={0.85}
-          onPress={() => navigation.goBack()}
+          onPress={handleGoBack}
         >
           <Ionicons name="arrow-back" size={24} color={colors.textLight} />
         </TouchableOpacity>
@@ -174,72 +184,74 @@ export default function ChallengesScreen({ navigation }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Текущий статус</Text>
+        <TutorialTarget id="challenges-status">
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Текущий статус</Text>
 
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Уровень</Text>
-              <Text style={styles.summaryValue}>{level}</Text>
-            </View>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Уровень</Text>
+                <Text style={styles.summaryValue}>{level}</Text>
+              </View>
 
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Работа</Text>
-              <Text style={styles.summaryValueSmall}>
-                {activeJob?.title ?? 'Нет'}
-              </Text>
-            </View>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Работа</Text>
+                <Text style={styles.summaryValueSmall}>
+                  {activeJob?.title ?? 'Нет'}
+                </Text>
+              </View>
 
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Жильё</Text>
-              <Text style={styles.summaryValueSmall}>
-                {ownedProperty?.title ?? 'Нет'}
-              </Text>
-            </View>
-          </View>
-
-          {activeBoostIds.length > 0 ? (
-            <View style={styles.activeBoostsBox}>
-              <Text style={styles.activeBoostsTitle}>Активные бусты</Text>
-
-              <View style={styles.activeBoostsRow}>
-                {activeBoostIds.map((boostId) => {
-                  const boost = boosts.find((item) => item.id === boostId);
-
-                  if (!boost) {
-                    return null;
-                  }
-
-                  return (
-                    <View key={boost.id} style={styles.activeBoostChip}>
-                      <Text style={styles.activeBoostChipText}>
-                        {boost.title}
-                      </Text>
-                    </View>
-                  );
-                })}
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Жильё</Text>
+                <Text style={styles.summaryValueSmall}>
+                  {ownedProperty?.title ?? 'Нет'}
+                </Text>
               </View>
             </View>
-          ) : null}
 
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              !salaryAvailable && styles.disabledButton,
-            ]}
-            activeOpacity={0.88}
-            onPress={handleReceiveSalary}
-            disabled={!salaryAvailable}
-          >
-            <Text style={styles.primaryButtonText}>
-              {!activeJob
-                ? 'Сначала устройся на работу'
-                : salaryRemainingSeconds > 0
-                ? `Зарплата через ${formatSeconds(salaryRemainingSeconds)}`
-                : `Получить зарплату: ${activeSalary} FC`}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {activeBoostIds.length > 0 ? (
+              <View style={styles.activeBoostsBox}>
+                <Text style={styles.activeBoostsTitle}>Активные бусты</Text>
+
+                <View style={styles.activeBoostsRow}>
+                  {activeBoostIds.map((boostId) => {
+                    const boost = boosts.find((item) => item.id === boostId);
+
+                    if (!boost) {
+                      return null;
+                    }
+
+                    return (
+                      <View key={boost.id} style={styles.activeBoostChip}>
+                        <Text style={styles.activeBoostChipText}>
+                          {boost.title}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                !salaryAvailable && styles.disabledButton,
+              ]}
+              activeOpacity={0.88}
+              onPress={handleReceiveSalary}
+              disabled={!salaryAvailable}
+            >
+              <Text style={styles.primaryButtonText}>
+                {!activeJob
+                  ? 'Сначала устройся на работу'
+                  : salaryRemainingSeconds > 0
+                  ? `Зарплата через ${formatSeconds(salaryRemainingSeconds)}`
+                  : `Получить зарплату: ${activeSalary} FC`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TutorialTarget>
 
         <Text style={styles.sectionTitle}>Карьера</Text>
 

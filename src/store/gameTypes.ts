@@ -122,10 +122,12 @@ export type GameContextType = {
 
   isGuest: boolean;
   isGameLoading: boolean;
-  onboardingCompleted: boolean;
   userDataLoaded: boolean;
 
-  setOnboardingCompleted: (value: boolean) => void;
+  viewedTutorialIds: string[];
+
+  markTutorialViewed: (tutorialId: string) => Promise<void>;
+  resetTutorialProgress: () => Promise<void>;
 
   addRewards: (xpToAdd: number, finCoinToAdd: number) => Promise<void>;
   addTestXp: (amount: number) => Promise<void>;

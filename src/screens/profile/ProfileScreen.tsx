@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 import colors from '../../constants/colors';
 import { auth, db } from '../../services/firebase';
@@ -33,7 +33,7 @@ export default function ProfileScreen({
 }: Props) {
   const [userData, setUserData] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [resetLoading, setResetLoading] = useState(false);
+  const [tutorialResetLoading, setTutorialResetLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
   const {
@@ -41,8 +41,8 @@ export default function ProfileScreen({
     xp,
     finCoin,
     mortgageStatus,
-    onboardingCompleted,
     isGameLoading,
+    resetTutorialProgress,
   } = useGame();
 
   const currentUser = auth.currentUser;
@@ -87,43 +87,20 @@ export default function ProfileScreen({
     loadUserData();
   }, [guestMode]);
 
-  const handleResetOnboarding = async () => {
-    if (guestMode) {
-      Alert.alert(
-        'Тестовый режим',
-        'В гостевом режиме онбординг отключён и не используется.'
-      );
-      return;
-    }
-
-    if (!currentUser) {
-      Alert.alert('Ошибка', 'Пользователь не найден.');
-      return;
-    }
-
+  const handleResetTutorial = async () => {
     try {
-      setResetLoading(true);
+      setTutorialResetLoading(true);
 
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        onboardingCompleted: false,
-      });
+      await resetTutorialProgress();
 
       Alert.alert(
         'Готово',
-        'Онбординг сброшен. Сейчас выполнится выход, и при следующем входе откроется онбординг.',
-        [
-          {
-            text: 'Ок',
-            onPress: async () => {
-              await logout();
-            },
-          },
-        ]
+        'Туториал сброшен. Перейди на другую вкладку или перезапусти приложение, чтобы обучение появилось снова.'
       );
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось сбросить онбординг.');
+      Alert.alert('Ошибка', 'Не удалось сбросить туториал.');
     } finally {
-      setResetLoading(false);
+      setTutorialResetLoading(false);
     }
   };
 
@@ -218,17 +195,6 @@ export default function ProfileScreen({
                 </View>
               </View>
 
-              <View style={styles.statusBox}>
-                <Text style={styles.statusTitle}>Онбординг</Text>
-                <Text style={styles.statusText}>
-                  {guestMode
-                    ? 'Отключён для тестового входа'
-                    : onboardingCompleted
-                    ? 'Пройден'
-                    : 'Не пройден или был сброшен'}
-                </Text>
-              </View>
-
               <View style={styles.mortgageStatusBox}>
                 <Text style={styles.statusTitle}>{mortgageStatusTitle}</Text>
                 <Text style={styles.statusText}>{mortgageStatusText}</Text>
@@ -237,18 +203,20 @@ export default function ProfileScreen({
           )}
         </View>
 
-        {!guestMode && !isLoading ? (
+        {!isLoading ? (
           <TouchableOpacity
             style={[
-              styles.secondaryButton,
-              resetLoading && styles.buttonDisabled,
+              styles.tutorialButton,
+              tutorialResetLoading && styles.buttonDisabled,
             ]}
-            onPress={handleResetOnboarding}
+            onPress={handleResetTutorial}
             activeOpacity={0.85}
-            disabled={resetLoading}
+            disabled={tutorialResetLoading}
           >
-            <Text style={styles.secondaryButtonText}>
-              {resetLoading ? 'Сбрасываем...' : 'Сбросить онбординг для теста'}
+            <Text style={styles.tutorialButtonText}>
+              {tutorialResetLoading
+                ? 'Сбрасываем туториал...'
+                : 'Сбросить туториал для теста'}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -256,7 +224,8 @@ export default function ProfileScreen({
         {guestMode && !isLoading ? (
           <View style={styles.guestHintBox}>
             <Text style={styles.guestHintText}>
-              В тестовом гостевом режиме онбординг не используется.
+              В тестовом гостевом режиме можно сбрасывать туториал для проверки
+              обучения.
             </Text>
           </View>
         ) : null}
@@ -359,20 +328,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.primaryDark,
   },
-  statusBox: {
-    backgroundColor: '#FFF7DE',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#F1E3B4',
-  },
   mortgageStatusBox: {
     backgroundColor: '#EAF6F3',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
     borderColor: '#D7EDE8',
-    marginTop: 12,
   },
   statusTitle: {
     fontSize: 16,
@@ -385,18 +346,18 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#31433F',
   },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
+  tutorialButton: {
+    backgroundColor: '#EAF6F2',
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: '#BFDCD5',
     marginBottom: 12,
   },
-  secondaryButtonText: {
+  tutorialButtonText: {
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.primary,
   },
   guestHintBox: {

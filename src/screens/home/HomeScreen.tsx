@@ -2,6 +2,7 @@ import React from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { RootTabParamList } from '../../navigation/AppNavigator';
+import TutorialTarget from '../../components/tutorial/TutorialTarget';
 
 type Props = BottomTabScreenProps<RootTabParamList, 'Home'>;
 
@@ -11,19 +12,21 @@ export default function HomeScreen({ navigation }: Props) {
       <View style={styles.content}>
         <Text style={styles.logoIcon}>F</Text>
         <Text style={styles.logoText}>FINITY</Text>
-
-        <View style={styles.coinSection}>
-          <Text style={styles.sparkleLeft}>✦</Text>
-          <View style={styles.coinShadow} />
-          <View style={styles.coinOuter}>
-            <View style={styles.coinMiddle}>
-              <View style={styles.coinInner}>
-                <Text style={styles.coinDollar}>$</Text>
+        
+        <TutorialTarget id="home-main">
+          <View style={styles.coinSection}>
+            <Text style={styles.sparkleLeft}>✦</Text>
+            <View style={styles.coinShadow} />
+            <View style={styles.coinOuter}>
+              <View style={styles.coinMiddle}>
+                <View style={styles.coinInner}>
+                  <Text style={styles.coinDollar}>$</Text>
+                </View>
               </View>
             </View>
+            <Text style={styles.sparkleRight}>✦</Text>
           </View>
-          <Text style={styles.sparkleRight}>✦</Text>
-        </View>
+        </TutorialTarget>
 
         <Text style={styles.title}>
           Изучайте{'\n'}

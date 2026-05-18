@@ -17,7 +17,6 @@ import { loanProducts } from '../../constants/loanProducts';
 import { scalePrice } from '../../constants/economy';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
-import { scaleFinCoinPrice } from '../../store/gameConfig';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Bank'>;
 type BankTab = 'deposits' | 'loans';
@@ -61,6 +60,7 @@ function getEarlyWithdrawText(policy: 'none' | 'no_profit' | 'half_profit') {
 
 function formatPaymentDate(timestamp: number) {
   const date = new Date(timestamp);
+
   return date.toLocaleDateString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
@@ -90,9 +90,8 @@ export default function BankScreen({ navigation }: Props) {
 
   const [activeTab, setActiveTab] = useState<BankTab>('deposits');
 
-
   const scaledDepositProducts = useMemo(
-  () =>
+    () =>
       depositProducts.map((product) => ({
         ...product,
         minAmount: scalePrice(product.minAmount, level),
@@ -116,16 +115,19 @@ export default function BankScreen({ navigation }: Props) {
     if (total <= 0) return 0;
 
     const passed = total - depositRemainingSeconds;
+
     return Math.max(0, Math.min(100, Math.round((passed / total) * 100)));
   }, [activeDeposit, depositRemainingSeconds]);
 
   const loanShortage = useMemo(() => {
     if (!activeLoan) return 0;
+
     return Math.max(0, activeLoan.remainingDebt - finCoin);
   }, [activeLoan, finCoin]);
 
   const paymentShortage = useMemo(() => {
     if (!activeLoan) return 0;
+
     return Math.max(0, activeLoan.monthlyPayment - finCoin);
   }, [activeLoan, finCoin]);
 
@@ -580,6 +582,7 @@ export default function BankScreen({ navigation }: Props) {
                 activeTab === 'deposits' ? colors.textLight : colors.primaryDark
               }
             />
+
             <Text
               style={[
                 styles.tabButtonText,
@@ -601,8 +604,11 @@ export default function BankScreen({ navigation }: Props) {
             <MaterialCommunityIcons
               name="credit-card-fast-outline"
               size={20}
-              color={activeTab === 'loans' ? colors.textLight : colors.primaryDark}
+              color={
+                activeTab === 'loans' ? colors.textLight : colors.primaryDark
+              }
             />
+
             <Text
               style={[
                 styles.tabButtonText,
@@ -649,6 +655,7 @@ export default function BankScreen({ navigation }: Props) {
                         >
                           {product.title}
                         </Text>
+
                         <Text style={styles.cardSubtitle}>
                           Открывается с {product.requiredLevel} уровня
                         </Text>
@@ -751,7 +758,7 @@ export default function BankScreen({ navigation }: Props) {
             })}
 
           {activeTab === 'loans' &&
-            scaledLoanProducts.map((product) => { 
+            scaledLoanProducts.map((product) => {
               const isUnlocked = level >= product.requiredLevel;
               const hasActiveLoan = !!activeLoan;
 
@@ -788,6 +795,7 @@ export default function BankScreen({ navigation }: Props) {
                         >
                           {product.title}
                         </Text>
+
                         <Text style={styles.cardSubtitle}>
                           Открывается с {product.requiredLevel} уровня
                         </Text>
@@ -969,7 +977,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textDark,
   },
-
   mortgageBankCard: {
     backgroundColor: colors.card,
     borderRadius: 24,
@@ -1055,7 +1062,6 @@ const styles = StyleSheet.create({
   mortgageBankButtonTextDisabled: {
     color: colors.muted,
   },
-
   activeCard: {
     backgroundColor: colors.card,
     borderRadius: 24,
