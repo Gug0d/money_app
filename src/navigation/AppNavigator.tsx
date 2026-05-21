@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   NavigationContainer,
   NavigatorScreenParams,
@@ -8,6 +8,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -74,6 +75,9 @@ const LifeStack = createNativeStackNavigator<LifeStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
+const BANK_UNLOCK_LEVEL = 2;
+const BANK_UNLOCK_NOTIFICATION_ID = 'bank-unlocked-notification-v5';
+
 function LoadingScreen() {
   return (
     <SafeAreaView style={styles.loadingContainer}>
@@ -119,6 +123,8 @@ function MainTabs({
 }) {
   const navigation = useNavigation<any>();
 
+  const previousLevelRef = useRef<number | null>(null);
+
   const { level, isGameLoading, viewedTutorialIds, markTutorialViewed } =
     useGame();
 
@@ -134,6 +140,57 @@ function MainTabs({
       setTutorialVisible(true);
     }
   }, [isGameLoading, activeTutorialFlow]);
+
+  useEffect(() => {
+    if (isGameLoading) return;
+
+    if (previousLevelRef.current === null) {
+      previousLevelRef.current = level;
+      return;
+    }
+
+    const previousLevel = previousLevelRef.current;
+    previousLevelRef.current = level;
+
+    const reachedBankLevel =
+      previousLevel < BANK_UNLOCK_LEVEL && level >= BANK_UNLOCK_LEVEL;
+
+    if (!reachedBankLevel) return;
+
+    if (viewedTutorialIds.includes(BANK_UNLOCK_NOTIFICATION_ID)) {
+      return;
+    }
+
+    markTutorialViewed(BANK_UNLOCK_NOTIFICATION_ID);
+
+    Alert.alert(
+      'Банк открыт!',
+      'Поздравляем! Ты достиг 2 уровня. Теперь тебе доступен раздел «Банк». Там можно открывать вклады, брать кредиты и пользоваться финансовыми инструментами.',
+      [
+        {
+          text: 'Позже',
+          style: 'cancel',
+        },
+        {
+          text: 'Открыть банк',
+          onPress: () => {
+            navigation.navigate('Main', {
+              screen: 'Life',
+              params: {
+                screen: 'Bank',
+              },
+            });
+          },
+        },
+      ]
+    );
+  }, [
+    isGameLoading,
+    level,
+    viewedTutorialIds,
+    markTutorialViewed,
+    navigation,
+  ]);
 
   const handleNavigateToTutorialTarget = (target: TutorialActionTarget) => {
     switch (target) {
@@ -264,6 +321,15 @@ function MainTabs({
           name="Life"
           component={LifeNavigator}
           options={{ title: 'Жизнь' }}
+          listeners={({ navigation: tabNavigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault();
+
+              tabNavigation.navigate('Life', {
+                screen: 'LifeMain',
+              });
+            },
+          })}
         />
 
         <Tab.Screen

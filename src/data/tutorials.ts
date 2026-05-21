@@ -115,7 +115,7 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
           width: 0,
           height: 0,
           borderRadius: 24,
-          cardPosition: 'top',
+          cardPosition: 'bottom',
         },
       },
       {
@@ -182,9 +182,19 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
         description:
           'Банк — это раздел с финансовыми инструментами: вкладами, кредитами и ипотекой. Сейчас он закрыт, потому что игрок только начинает обучение. Сначала нужно получить базовый опыт.',
         actionText: 'Дальше',
-        actionTarget: 'none',
+        actionTarget: 'life',
+        targetKey: 'life-bank-button',
+        targetPadding: 10,
         locked: true,
         lockedText: 'Банк откроется на 2 уровне',
+        highlight: {
+          top: 0,
+          left: 0,
+          width: 0,
+          height: 0,
+          borderRadius: 36,
+          cardPosition: 'top',
+        },
       },
       {
         id: 'advisor-screen',
@@ -227,12 +237,4 @@ export function isBankUnlocked(level: number) {
 
 export function isMortgageUnlocked(level: number) {
   return level >= MORTGAGE_UNLOCK_LEVEL;
-}
-
-export function isAdvancedChallengesUnlocked(level: number) {
-  return level >= CHALLENGES_ADVANCED_UNLOCK_LEVEL;
-}
-
-export function isLoanUnlocked(level: number) {
-  return level >= LOAN_UNLOCK_LEVEL;
 }

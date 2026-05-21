@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
+  LayoutChangeEvent,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,7 +13,9 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { LifeStackParamList } from '../../navigation/AppNavigator';
 import { useGame } from '../../store/GameContext';
-import TutorialTarget from '../../components/tutorial/TutorialTarget';
+import TutorialTarget, {
+  addTutorialTargetFocusListener,
+} from '../../components/tutorial/TutorialTarget';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Household'>;
 
@@ -42,6 +45,50 @@ export default function HouseholdScreen({ navigation }: Props) {
     resetHomeBillsForTest,
     triggerHomeEventForTest,
   } = useGame();
+
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const targetYRef = useRef<Record<string, number>>({});
+
+  const rememberTargetY =
+    (targetId: string) => (event: LayoutChangeEvent) => {
+      targetYRef.current[targetId] = event.nativeEvent.layout.y;
+    };
+
+  useEffect(() => {
+    const unsubscribe = addTutorialTargetFocusListener((targetId) => {
+      if (!targetId.startsWith('household-')) {
+        return;
+      }
+
+      const scrollToTarget = () => {
+        if (targetId === 'household-main') {
+          scrollViewRef.current?.scrollTo({
+            y: 0,
+            animated: true,
+          });
+
+          return;
+        }
+
+        const targetY = targetYRef.current[targetId];
+
+        if (typeof targetY !== 'number') {
+          return;
+        }
+
+        const offset = targetId === 'household-events' ? 210 : 120;
+
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, targetY - offset),
+          animated: true,
+        });
+      };
+
+      setTimeout(scrollToTarget, 80);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const paidBills = useMemo(
     () => homeBills.filter((bill) => bill.status === 'paid').length,
@@ -76,7 +123,10 @@ export default function HouseholdScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.content}
+      >
         <View style={styles.topRow}>
           <TouchableOpacity
             style={styles.backButton}
@@ -98,7 +148,10 @@ export default function HouseholdScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <TutorialTarget id="household-main">
+        <TutorialTarget
+          id="household-main"
+          onLayout={rememberTargetY('household-main')}
+        >
           <View style={styles.homeCard}>
             <Text style={styles.homeEmoji}>🏠</Text>
             <Text style={styles.title}>Дом и быт</Text>
@@ -108,7 +161,10 @@ export default function HouseholdScreen({ navigation }: Props) {
           </View>
         </TutorialTarget>
 
-        <TutorialTarget id="household-payments">
+        <TutorialTarget
+          id="household-payments"
+          onLayout={rememberTargetY('household-payments')}
+        >
           <View>
             <View style={styles.progressCard}>
               <View style={styles.rowBetween}>
@@ -183,7 +239,10 @@ export default function HouseholdScreen({ navigation }: Props) {
           </View>
         </TutorialTarget>
 
-        <TutorialTarget id="household-events">
+        <TutorialTarget
+          id="household-events"
+          onLayout={rememberTargetY('household-events')}
+        >
           {homeEvent ? (
             <View style={styles.eventCard}>
               <Text style={styles.eventLabel}>Событие дома</Text>

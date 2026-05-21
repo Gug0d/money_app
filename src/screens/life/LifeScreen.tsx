@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -16,14 +17,14 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import colors from '../../constants/colors';
-import TutorialTarget from '../../components/tutorial/TutorialTarget';
+import TutorialTarget, {
+  addTutorialTargetFocusListener,
+} from '../../components/tutorial/TutorialTarget';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
 import { scalePrice } from '../../constants/economy';
-import { scaleFinCoinPrice } from '../../store/gameConfig';
 import { jobs } from '../../constants/challenges';
-
-
+import { BANK_UNLOCK_LEVEL, isBankUnlocked } from '../../data/tutorials';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'LifeMain'>;
 
@@ -35,6 +36,8 @@ function formatTime(seconds: number) {
 }
 
 export default function LifeScreen({ navigation }: Props) {
+  const scrollViewRef = useRef<ScrollView | null>(null);
+
   const {
     level,
     xp,
@@ -53,13 +56,31 @@ export default function LifeScreen({ navigation }: Props) {
     reduceMortgageTime,
   } = useGame();
 
-  
+  useEffect(() => {
+    const unsubscribe = addTutorialTargetFocusListener((targetId) => {
+      if (targetId !== 'life-bank-button') {
+        return;
+      }
+
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: 0,
+          animated: true,
+        });
+      }, 100);
+    });
+
+    return unsubscribe;
+  }, []);
+
   const ACCELERATION_SECONDS = 15;
   const ACCELERATION_COST = scalePrice(20, level);
 
+  const bankUnlocked = isBankUnlocked(level);
+
   const nextGoalText =
     level === 1
-      ? 'Пройди ещё миссии, чтобы открыть финансовые инструменты.'
+      ? `Достигни ${BANK_UNLOCK_LEVEL} уровня, чтобы открыть раздел «Банк».`
       : level === 2
       ? 'Достигни 3 уровня, чтобы открыть ипотеку.'
       : level === 3
@@ -67,6 +88,18 @@ export default function LifeScreen({ navigation }: Props) {
       : 'Продолжай развивать персонажа и открывай новые финансовые возможности.';
 
   const progressPercent = Math.round(progressToNextLevel * 100);
+
+  const handleOpenBank = () => {
+    if (!bankUnlocked) {
+      Alert.alert(
+        'Банк закрыт',
+        `Раздел «Банк» откроется на ${BANK_UNLOCK_LEVEL} уровне. Выполняй миссии и получай XP.`
+      );
+      return;
+    }
+
+    navigation.navigate('Bank');
+  };
 
   const handleReduceTime = async () => {
     await reduceMortgageTime(ACCELERATION_SECONDS, ACCELERATION_COST);
@@ -80,7 +113,7 @@ export default function LifeScreen({ navigation }: Props) {
             100
         )
       : 0;
-  
+
   const activeJob = jobs.find((job) => job.id === activeJobId) ?? null;
 
   const characterRoleText = activeJob ? activeJob.title : 'Без работы';
@@ -88,7 +121,6 @@ export default function LifeScreen({ navigation }: Props) {
   const characterHintText = activeJob
     ? `Сейчас герой работает: ${activeJob.title}. Выполняй челленджи и получай зарплату.`
     : 'Устройся на работу в разделе «Челленджи», чтобы получать стабильный доход.';
-
 
   if (isGameLoading) {
     return (
@@ -102,6 +134,7 @@ export default function LifeScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -123,91 +156,120 @@ export default function LifeScreen({ navigation }: Props) {
 
         <TutorialTarget id="life-main">
           <View style={styles.worldCard}>
-          <View style={styles.backgroundCloudOne} />
-          <View style={styles.backgroundCloudTwo} />
-          <View style={styles.backgroundHillLeft} />
-          <View style={styles.backgroundHillRight} />
-          <View style={styles.pathOne} />
-          <View style={styles.pathTwo} />
+            <View style={styles.backgroundCloudOne} />
+            <View style={styles.backgroundCloudTwo} />
+            <View style={styles.backgroundHillLeft} />
+            <View style={styles.backgroundHillRight} />
+            <View style={styles.pathOne} />
+            <View style={styles.pathTwo} />
 
-          <TouchableOpacity
-            style={[styles.mapNode, styles.nodeHome]}
-            activeOpacity={0.88}
-            onPress={() => navigation.navigate('Household')}
-          >
-            <View style={styles.nodeIconCircle}>
-              <Ionicons name="home" size={26} color="#FFFFFF" />
-            </View>
-            <Text style={styles.nodeLabelLeft}>Дом</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mapNode, styles.nodeHome]}
+              activeOpacity={0.88}
+              onPress={() => navigation.navigate('Household')}
+            >
+              <View style={styles.nodeIconCircle}>
+                <Ionicons name="home" size={26} color="#FFFFFF" />
+              </View>
+              <Text style={styles.nodeLabelLeft}>Дом</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.mapNode, styles.nodeChallenges]}
-            activeOpacity={0.88}
-            onPress={() => navigation.navigate('Challenges')}
-          >
-            <View style={styles.nodeIconCircle}>
-              <Ionicons
-                name="checkmark-done-circle"
-                size={26}
-                color="#FFFFFF"
-              />
-            </View>
-            <Text style={styles.nodeLabelRight}>Челленджи</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mapNode, styles.nodeChallenges]}
+              activeOpacity={0.88}
+              onPress={() => navigation.navigate('Challenges')}
+            >
+              <View style={styles.nodeIconCircle}>
+                <Ionicons
+                  name="checkmark-done-circle"
+                  size={26}
+                  color="#FFFFFF"
+                />
+              </View>
+              <Text style={styles.nodeLabelRight}>Челленджи</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.mapNode, styles.nodeAdvice]}
-            activeOpacity={0.88}
-          >
-            <View style={styles.nodeIconCircle}>
-              <MaterialCommunityIcons
-                name="note-text-outline"
-                size={26}
-                color="#FFFFFF"
-              />
-            </View>
-            <Text style={styles.nodeLabelRight}>Советы</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mapNode, styles.nodeAdvice]}
+              activeOpacity={0.88}
+            >
+              <View style={styles.nodeIconCircle}>
+                <MaterialCommunityIcons
+                  name="note-text-outline"
+                  size={26}
+                  color="#FFFFFF"
+                />
+              </View>
+              <Text style={styles.nodeLabelRight}>Советы</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.mapNode, styles.nodeBank]}
-            activeOpacity={0.88}
-            onPress={() => navigation.navigate('Bank')}
-          >
-            <View style={styles.nodeIconCircle}>
-              <Ionicons name="business" size={26} color="#FFFFFF" />
-            </View>
-            <Text style={styles.nodeLabelLeft}>Банк</Text>
-          </TouchableOpacity>
+            <TutorialTarget id="life-bank-button">
+              <TouchableOpacity
+                style={[styles.mapNode, styles.nodeBank]}
+                activeOpacity={0.88}
+                onPress={handleOpenBank}
+              >
+                <View
+                  style={[
+                    styles.nodeIconCircle,
+                    !bankUnlocked && styles.nodeIconCircleLocked,
+                  ]}
+                >
+                  <Ionicons
+                    name={bankUnlocked ? 'business' : 'lock-closed'}
+                    size={26}
+                    color="#FFFFFF"
+                  />
+                </View>
 
-          <TouchableOpacity
-            style={[styles.mapNode, styles.nodeFinance]}
-            activeOpacity={0.88}
-          >
-            <View style={styles.nodeIconCircle}>
-              <FontAwesome5 name="hashtag" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={styles.nodeLabelRight}>Финансы</Text>
-          </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.nodeLabelLeft,
+                    !bankUnlocked && styles.nodeLabelLocked,
+                  ]}
+                >
+                  Банк
+                </Text>
 
-          <View style={styles.characterWrap}>
-            <View style={styles.characterShadow} />
-            <View style={styles.characterHead} />
-            <View style={styles.characterBody} />
-            <View style={styles.characterLeftArm} />
-            <View style={styles.characterRightArm} />
-            <View style={styles.characterLeftLeg} />
-            <View style={styles.characterRightLeg} />
+                {!bankUnlocked && (
+                  <View style={styles.unlockBadge}>
+                    <Ionicons name="star" size={12} color="#8A5A00" />
+                    <Text style={styles.unlockBadgeText}>
+                      {BANK_UNLOCK_LEVEL} уровень
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </TutorialTarget>
 
-            <View style={styles.characterInfoCard}>
-              <Text style={styles.characterName}></Text>
-              <Text style={styles.characterRole}>{characterRoleText}</Text>
-              <Text style={styles.characterHint}>{characterHintText}</Text>
+            <TouchableOpacity
+              style={[styles.mapNode, styles.nodeFinance]}
+              activeOpacity={0.88}
+            >
+              <View style={styles.nodeIconCircle}>
+                <FontAwesome5 name="hashtag" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.nodeLabelRight}>Финансы</Text>
+            </TouchableOpacity>
+
+            <View style={styles.characterWrap}>
+              <View style={styles.characterShadow} />
+              <View style={styles.characterHead} />
+              <View style={styles.characterBody} />
+              <View style={styles.characterLeftArm} />
+              <View style={styles.characterRightArm} />
+              <View style={styles.characterLeftLeg} />
+              <View style={styles.characterRightLeg} />
+
+              <View style={styles.characterInfoCard}>
+                <Text style={styles.characterName}></Text>
+                <Text style={styles.characterRole}>{characterRoleText}</Text>
+                <Text style={styles.characterHint}>{characterHintText}</Text>
+              </View>
             </View>
           </View>
-        </View>
-      </TutorialTarget>
+        </TutorialTarget>
+
         <View style={styles.progressCard}>
           <Text style={styles.progressTitle}>Финансовый прогресс</Text>
 
@@ -321,7 +383,7 @@ export default function LifeScreen({ navigation }: Props) {
                 <TouchableOpacity
                   style={styles.mortgageButton}
                   activeOpacity={0.88}
-                  onPress={() => navigation.navigate('Bank')}
+                  onPress={handleOpenBank}
                 >
                   <Text style={styles.mortgageButtonText}>Перейти в банк</Text>
                 </TouchableOpacity>
@@ -538,6 +600,11 @@ const styles = StyleSheet.create({
     },
     elevation: 4,
   },
+  nodeIconCircleLocked: {
+    backgroundColor: '#8A8A8A',
+    borderColor: '#D6D0BC',
+    opacity: 0.95,
+  },
   nodeLabelLeft: {
     marginTop: 10,
     fontSize: 18,
@@ -551,6 +618,26 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.primaryDark,
     textAlign: 'center',
+  },
+  nodeLabelLocked: {
+    color: '#777777',
+  },
+  unlockBadge: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF1C7',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#E3C46A',
+  },
+  unlockBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#8A5A00',
   },
   characterWrap: {
     position: 'absolute',

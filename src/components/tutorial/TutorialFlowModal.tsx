@@ -11,8 +11,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import colors from '../../constants/colors';
-import { TutorialActionTarget, TutorialFlow, TutorialHighlight } from '../../data/tutorials';
-import { measureTutorialTarget } from './TutorialTarget';
+import {
+  TutorialActionTarget,
+  TutorialFlow,
+  TutorialHighlight,
+} from '../../data/tutorials';
+import {
+  emitTutorialTargetFocus,
+  measureTutorialTarget,
+} from './TutorialTarget';
 
 type Props = {
   visible: boolean;
@@ -122,10 +129,13 @@ export default function TutorialFlowModal({
       return;
     }
 
+    const targetKey = currentStep.targetKey;
     const padding = currentStep.targetPadding ?? 8;
 
+    emitTutorialTargetFocus(targetKey);
+
     const measure = async () => {
-      const layout = await measureTutorialTarget(currentStep.targetKey!);
+      const layout = await measureTutorialTarget(targetKey);
 
       if (cancelled || !layout) {
         return;
@@ -151,9 +161,9 @@ export default function TutorialFlowModal({
     };
 
     const timers = [
-      setTimeout(measure, 80),
-      setTimeout(measure, 250),
-      setTimeout(measure, 550),
+      setTimeout(measure, 450),
+      setTimeout(measure, 750),
+      setTimeout(measure, 1050),
     ];
 
     return () => {
@@ -165,6 +175,8 @@ export default function TutorialFlowModal({
     currentStep?.id,
     currentStep?.targetKey,
     currentStep?.targetPadding,
+    currentStep?.highlight?.borderRadius,
+    currentStep?.highlight?.cardPosition,
     screenWidth,
     screenHeight,
   ]);
@@ -190,36 +202,33 @@ export default function TutorialFlowModal({
   const highlightHeight = highlight?.height ?? 0;
   const highlightRadius = highlight?.borderRadius ?? 22;
 
-  const cardPosition = highlight?.cardPosition ?? 'bottom';
+  const cardPosition =
+    currentStep.highlight?.cardPosition ?? highlight?.cardPosition ?? 'bottom';
+
+  const isBankLockedStep = currentStep.id === 'bank-locked';
+
+  const estimatedCardHeight = 310;
+  const safeBottom = 18;
 
   const cardTop =
     hasHighlight && cardPosition === 'bottom'
-      ? Math.min(highlightTop + highlightHeight + 14, screenHeight - 335)
-      : undefined;
+      ? Math.min(
+          highlightTop + highlightHeight + 14,
+          screenHeight - estimatedCardHeight - safeBottom
+        )
+      : 70;
 
-  const cardBottom =
-    hasHighlight && cardPosition === 'top'
-      ? Math.max(screenHeight - highlightTop + 14, 85)
-      : undefined;
-
-  const cardStyle =
-    hasHighlight && cardPosition === 'top'
-      ? [
-          styles.infoCard,
-          styles.infoCardFloating,
-          {
-            bottom: cardBottom,
-          },
-        ]
-      : hasHighlight
-      ? [
-          styles.infoCard,
-          styles.infoCardFloating,
-          {
-            top: cardTop,
-          },
-        ]
-      : [styles.infoCard, styles.infoCardBottom];
+  const cardStyle = isBankLockedStep
+    ? [styles.infoCard, styles.infoCardTop]
+    : hasHighlight
+    ? [
+        styles.infoCard,
+        styles.infoCardFloating,
+        {
+          top: cardPosition === 'top' ? 70 : cardTop,
+        },
+      ]
+    : [styles.infoCard, styles.infoCardBottom];
 
   const handleBack = () => {
     if (!isFirstStep) {
@@ -246,7 +255,7 @@ export default function TutorialFlowModal({
   };
 
   const nextButtonText = isLastStep
-    ? 'Завершить'
+    ? 'Завершить обучение'
     : nextStep?.actionText ??
       getTargetButtonText(nextStep?.actionTarget) ??
       'Дальше';
@@ -473,6 +482,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 14,
     right: 14,
+  },
+  infoCardTop: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    top: 45,
   },
   topRow: {
     flexDirection: 'row',

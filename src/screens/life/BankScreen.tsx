@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -20,6 +20,8 @@ import { LifeStackParamList } from '../../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Bank'>;
 type BankTab = 'deposits' | 'loans';
+
+const BANK_UNLOCK_LEVEL = 2;
 
 function formatDuration(seconds: number) {
   const mins = Math.floor(seconds / 60);
@@ -87,6 +89,21 @@ export default function BankScreen({ navigation }: Props) {
     forceOverdue,
     reduceDepositTime,
   } = useGame();
+
+    useEffect(() => {
+    if (level < BANK_UNLOCK_LEVEL) {
+      Alert.alert(
+        'Банк закрыт',
+        'Раздел «Банк» откроется на 2 уровне. Выполняй миссии и получай XP.',
+        [
+          {
+            text: 'Понятно',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    }
+  }, [level, navigation]);
 
   const [activeTab, setActiveTab] = useState<BankTab>('deposits');
 

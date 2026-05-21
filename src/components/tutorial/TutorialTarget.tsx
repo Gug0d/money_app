@@ -10,6 +10,10 @@ export type TutorialTargetLayout = {
 
 const targetRegistry = new Map<string, View | null>();
 
+type TutorialTargetFocusListener = (targetId: string) => void;
+
+const focusListeners = new Set<TutorialTargetFocusListener>();
+
 type Props = ViewProps & {
   id: string;
   children: React.ReactNode;
@@ -57,5 +61,21 @@ export function measureTutorialTarget(
         height,
       });
     });
+  });
+}
+
+export function addTutorialTargetFocusListener(
+  listener: TutorialTargetFocusListener
+) {
+  focusListeners.add(listener);
+
+  return () => {
+    focusListeners.delete(listener);
+  };
+}
+
+export function emitTutorialTargetFocus(targetId: string) {
+  focusListeners.forEach((listener) => {
+    listener(targetId);
   });
 }
