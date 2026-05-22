@@ -1,3 +1,5 @@
+// src/screens/missions/MissionDetailsScreen.tsx
+
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
@@ -9,107 +11,96 @@ import {
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+
 import colors from '../../constants/colors';
-import { Mission } from '../../types/Mission';
 import { useGame } from '../../store/GameContext';
+import { Mission, MissionOption } from '../../types/Mission';
 
 export type MissionsStackParamList = {
   MissionsList: undefined;
-  MissionDetails: { mission: Mission };
+  MissionDetails: {
+    mission: Mission;
+  };
 };
 
 type Props = NativeStackScreenProps<MissionsStackParamList, 'MissionDetails'>;
 
 export default function MissionDetailsScreen({ route, navigation }: Props) {
   const { mission } = route.params;
-  const { xp: currentXp, level, addRewards, getLevelByXp } = useGame();
+  const game = useGame();
 
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [rewardGiven, setRewardGiven] = useState(false);
 
-  const selectedOption = useMemo(
-    () => mission.options?.find((option) => option.id === selectedOptionId),
-    [mission.options, selectedOptionId]
-  );
+  const selectedOption = useMemo(() => {
+    return mission.options?.find((option) => option.id === selectedOptionId);
+  }, [mission.options, selectedOptionId]);
 
-  const handleSubmit = () => {
-    if (!selectedOptionId) {
-      Alert.alert('Выберите вариант', 'Сначала выбери один из ответов.');
+  const correctOption = useMemo(() => {
+    return mission.options?.find((option) => option.isCorrect);
+  }, [mission.options]);
+
+  const handleSelectOption = async (option: MissionOption) => {
+    if (isCompleted) {
       return;
     }
 
-    setSubmitted(true);
-  };
+    setSelectedOptionId(option.id);
+    setIsCompleted(true);
 
-  const handleFinish = () => {
-    const rewardXp = selectedOption?.xp ?? mission.xpReward;
-    const rewardFinCoin = selectedOption?.finCoin ?? mission.finCoinReward;
+    if (option.isCorrect && !rewardGiven) {
+      const xpReward = option.xp ?? mission.xpReward;
+      const finCoinReward = option.finCoin ?? mission.finCoinReward;
 
-    const nextXp = currentXp + rewardXp;
-    const nextLevel = getLevelByXp(nextXp);
-    const levelUp = nextLevel > level;
+      await game.addRewards(xpReward, finCoinReward);
+      setRewardGiven(true);
 
-    addRewards(rewardXp, rewardFinCoin);
-
-    if (levelUp) {
       Alert.alert(
-        'Новый уровень!',
-        `Поздравляем! Ты достиг уровня ${nextLevel}.\n\nНаграда за миссию: ${rewardXp} XP и ${rewardFinCoin} FinCoin.`,
-        [
-          {
-            text: 'Отлично',
-            onPress: () => navigation.goBack(),
-          },
-        ]
+        'Верно!',
+        `Ты получил ${xpReward} XP и ${finCoinReward} FC.`
       );
+
       return;
     }
 
     Alert.alert(
-      'Миссия завершена',
-      `Ты получил ${rewardXp} XP и ${rewardFinCoin} FinCoin.`,
-      [
-        {
-          text: 'Продолжить',
-          onPress: () => navigation.goBack(),
-        },
-      ]
+      'Неверно',
+      correctOption
+        ? `Правильный ответ: ${correctOption.text}`
+        : 'Попробуй внимательнее изучить вопрос.'
     );
+  };
+
+  const handleFinish = () => {
+    navigation.goBack();
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
       >
         <TouchableOpacity
           style={styles.backButton}
           activeOpacity={0.85}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={20} color={colors.primaryDark} />
-          <Text style={styles.backText}>Назад</Text>
+          <Ionicons name="arrow-back" size={22} color={colors.primary} />
+          <Text style={styles.backButtonText}>Назад</Text>
         </TouchableOpacity>
 
         <View style={styles.headerCard}>
           <View style={styles.headerTopRow}>
-            <Text style={styles.title}>{mission.title}</Text>
+            <View style={styles.iconWrap}>
+              <Ionicons name="sparkles" size={30} color={colors.primary} />
+            </View>
 
-            <View style={styles.typeBadge}>
-              <MaterialCommunityIcons
-                name={
-                  mission.type === 'quiz'
-                    ? 'file-question-outline'
-                    : 'swap-horizontal-bold'
-                }
-                size={16}
-                color={colors.primary}
-              />
-              <Text style={styles.typeBadgeText}>
-                {mission.type === 'quiz' ? 'Квиз' : 'Сценарий'}
-              </Text>
+            <View style={styles.headerTextBlock}>
+              <Text style={styles.difficulty}>{mission.difficulty}</Text>
+              <Text style={styles.title}>{mission.title}</Text>
             </View>
           </View>
 
@@ -117,15 +108,13 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
 
           <View style={styles.rewardRow}>
             <View style={styles.rewardChip}>
-              <Ionicons name="flash" size={16} color="#D9A520" />
-              <Text style={styles.rewardChipText}>{mission.xpReward} XP</Text>
+              <Ionicons name="star-outline" size={16} color="#D9A520" />
+              <Text style={styles.rewardText}>+{mission.xpReward} XP</Text>
             </View>
 
             <View style={styles.rewardChip}>
-              <Ionicons name="logo-usd" size={16} color="#D9A520" />
-              <Text style={styles.rewardChipText}>
-                {mission.finCoinReward} FinCoin
-              </Text>
+              <Ionicons name="wallet-outline" size={16} color={colors.primary} />
+              <Text style={styles.rewardText}>+{mission.finCoinReward} FC</Text>
             </View>
           </View>
         </View>
@@ -133,17 +122,17 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
         <View style={styles.questionCard}>
           <Text style={styles.questionLabel}>Вопрос</Text>
           <Text style={styles.questionText}>
-            {mission.question ?? 'Выбери наиболее разумное финансовое решение.'}
+            {mission.question || 'Какое решение будет финансово грамотным?'}
           </Text>
         </View>
 
         <View style={styles.optionsBlock}>
-          <Text style={styles.optionsTitle}>Варианты ответа</Text>
+          <Text style={styles.sectionTitle}>Выбери ответ</Text>
 
           {mission.options?.map((option) => {
             const isSelected = selectedOptionId === option.id;
-            const showCorrect = submitted && option.isCorrect;
-            const showWrong = submitted && isSelected && !option.isCorrect;
+            const showResult = isCompleted;
+            const isCorrect = option.isCorrect;
 
             return (
               <TouchableOpacity
@@ -151,45 +140,73 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
                 style={[
                   styles.optionCard,
                   isSelected && styles.optionCardSelected,
-                  showCorrect && styles.optionCardCorrect,
-                  showWrong && styles.optionCardWrong,
+                  showResult && isCorrect && styles.optionCardCorrect,
+                  showResult && isSelected && !isCorrect && styles.optionCardWrong,
                 ]}
-                activeOpacity={0.88}
-                onPress={() => !submitted && setSelectedOptionId(option.id)}
+                activeOpacity={0.86}
+                onPress={() => handleSelectOption(option)}
+                disabled={isCompleted}
               >
                 <View style={styles.optionTopRow}>
-                  <View style={styles.optionRadio}>
-                    {isSelected && <View style={styles.optionRadioInner} />}
+                  <View
+                    style={[
+                      styles.optionLetter,
+                      showResult && isCorrect && styles.optionLetterCorrect,
+                      showResult &&
+                        isSelected &&
+                        !isCorrect &&
+                        styles.optionLetterWrong,
+                    ]}
+                  >
+                    <Text style={styles.optionLetterText}>
+                      {option.id.toUpperCase()}
+                    </Text>
                   </View>
 
                   <Text style={styles.optionText}>{option.text}</Text>
                 </View>
 
-                {submitted && isSelected && option.explanation ? (
-                  <Text style={styles.explanationText}>{option.explanation}</Text>
+                {showResult && option.explanation ? (
+                  <Text style={styles.explanationText}>
+                    {option.explanation}
+                  </Text>
                 ) : null}
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {!submitted ? (
-          <TouchableOpacity
-            style={styles.actionButton}
-            activeOpacity={0.88}
-            onPress={handleSubmit}
-          >
-            <Text style={styles.actionButtonText}>Проверить ответ</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.actionButton}
-            activeOpacity={0.88}
-            onPress={handleFinish}
-          >
-            <Text style={styles.actionButtonText}>Завершить миссию</Text>
-          </TouchableOpacity>
-        )}
+        {isCompleted ? (
+          <View style={styles.resultCard}>
+            <View style={styles.resultTopRow}>
+              <Ionicons
+                name={selectedOption?.isCorrect ? 'checkmark-circle' : 'close-circle'}
+                size={24}
+                color={selectedOption?.isCorrect ? colors.success : colors.danger}
+              />
+
+              <Text style={styles.resultTitle}>
+                {selectedOption?.isCorrect ? 'Ответ верный' : 'Ответ неверный'}
+              </Text>
+            </View>
+
+            <Text style={styles.resultText}>
+              {selectedOption?.isCorrect
+                ? 'Отлично! Ты принял финансово грамотное решение.'
+                : correctOption
+                ? `Правильный вариант: ${correctOption.text}`
+                : 'Изучи объяснение и попробуй применить этот принцип в следующих миссиях.'}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.finishButton}
+              activeOpacity={0.9}
+              onPress={handleFinish}
+            >
+              <Text style={styles.finishButtonText}>Завершить</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -201,107 +218,124 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F1E4',
   },
   content: {
-    padding: 20,
-    paddingBottom: 32,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 30,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    gap: 6,
     marginBottom: 14,
   },
-  backText: {
-    marginLeft: 6,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primaryDark,
+  backButtonText: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: colors.primary,
   },
   headerCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 28,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#EFE7D6',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    elevation: 3,
     marginBottom: 16,
   },
   headerTopRow: {
-    gap: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  iconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#EAF6F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  headerTextBlock: {
+    flex: 1,
+  },
+  difficulty: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#9C7A1C',
+    marginBottom: 4,
   },
   title: {
-    fontSize: 28,
+    fontSize: 25,
+    lineHeight: 31,
     fontWeight: '900',
     color: colors.textDark,
   },
-  typeBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EAF6F3',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  typeBadgeText: {
-    marginLeft: 6,
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.primary,
-  },
   description: {
-    marginTop: 14,
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#31433F',
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#53625D',
+    marginBottom: 14,
   },
   rewardRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
     flexWrap: 'wrap',
+    gap: 10,
   },
   rewardChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF8E5',
     borderRadius: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     paddingVertical: 8,
   },
-  rewardChipText: {
-    marginLeft: 6,
+  rewardText: {
+    marginLeft: 5,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.textDark,
   },
   questionCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#FFF7DE',
     borderRadius: 24,
     padding: 18,
-    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#F1E3B4',
+    marginBottom: 20,
   },
   questionLabel: {
-    fontSize: 14,
-    color: '#D7F0EC',
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#9C7A1C',
     marginBottom: 8,
   },
   questionText: {
-    fontSize: 22,
-    lineHeight: 30,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontSize: 21,
+    lineHeight: 28,
+    fontWeight: '900',
+    color: colors.textDark,
   },
   optionsBlock: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  optionsTitle: {
+  sectionTitle: {
     fontSize: 24,
     fontWeight: '900',
     color: colors.textDark,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   optionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 16,
     borderWidth: 1,
     borderColor: '#EFE7D6',
@@ -309,43 +343,45 @@ const styles = StyleSheet.create({
   },
   optionCardSelected: {
     borderColor: colors.primary,
-    backgroundColor: '#F4FBF9',
   },
   optionCardCorrect: {
-    borderColor: '#3FAF6C',
-    backgroundColor: '#EAF8EF',
+    borderColor: colors.success,
+    backgroundColor: '#EEF8EF',
   },
   optionCardWrong: {
-    borderColor: '#D96C6C',
-    backgroundColor: '#FDECEC',
+    borderColor: colors.danger,
+    backgroundColor: '#FDEEEE',
   },
   optionTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  optionRadio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    marginRight: 12,
-    marginTop: 2,
-    alignItems: 'center',
+  optionLetter: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#EAF6F3',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  optionRadioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
+  optionLetterCorrect: {
+    backgroundColor: '#DDF3DF',
+  },
+  optionLetterWrong: {
+    backgroundColor: '#F7D4D4',
+  },
+  optionLetterText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.primaryDark,
   },
   optionText: {
     flex: 1,
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 23,
+    fontWeight: '800',
     color: colors.textDark,
-    fontWeight: '600',
   },
   explanationText: {
     marginTop: 12,
@@ -353,15 +389,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#53625D',
   },
-  actionButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
+  resultCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#EFE7D6',
   },
-  actionButtonText: {
-    fontSize: 18,
+  resultTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  resultTitle: {
+    fontSize: 19,
     fontWeight: '900',
     color: colors.textDark,
+  },
+  resultText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#53625D',
+    marginBottom: 16,
+  },
+  finishButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  finishButtonText: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
 });

@@ -1,169 +1,249 @@
-import React, { useMemo, useState } from 'react';
+// src/screens/advisor/AdvisorScreen.tsx
+
+import React, { useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
+  TextInput,
   View,
 } from 'react-native';
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+
 import colors from '../../constants/colors';
 import TutorialTarget from '../../components/tutorial/TutorialTarget';
-
-const tips = [
-  {
-    id: 't1',
-    category: 'Расходы',
-    icon: 'wallet-outline',
-    title: 'Следи за мелкими тратами',
-    text: 'Даже небольшие ежедневные расходы могут незаметно съедать бюджет. Попробуй записывать все траты хотя бы 3 дня подряд.',
-    action: 'Записать расходы',
-  },
-  {
-    id: 't2',
-    category: 'Накопления',
-    icon: 'save-outline',
-    title: 'Сначала отложи, потом трать',
-    text: 'Хорошая привычка — откладывать часть дохода сразу после его получения. Даже 5–10% уже создают полезный резерв.',
-    action: 'Начать копить',
-  },
-  {
-    id: 't3',
-    category: 'Безопасность',
-    icon: 'shield-checkmark-outline',
-    title: 'Береги данные карты',
-    text: 'Не передавай CVV-код, пин-код и полные реквизиты карты другим людям. Для онлайн-покупок используй только проверенные сайты.',
-    action: 'Понял',
-  },
-];
+import { useGame } from '../../store/GameContext';
+import { askAiAdvisor } from '../../services/ai';
+import { AiChatMessage, AiGameState } from '../../types/ai';
 
 export default function AdvisorScreen() {
-  const [activeTipIndex, setActiveTipIndex] = useState(0);
+  const game = useGame();
 
-  const activeTip = useMemo(() => tips[activeTipIndex], [activeTipIndex]);
+  const [messages, setMessages] = useState<AiChatMessage[]>([
+    {
+      id: 'hello',
+      role: 'assistant',
+      text:
+        'Привет! Я ИИ-помощник Finity. Можешь спросить меня, почему изменился баланс, как работает вклад, кредит, ипотека, счета дома или миссии.',
+    },
+  ]);
 
-  const handleNextTip = () => {
-    setActiveTipIndex((prev) => (prev + 1) % tips.length);
+  const [question, setQuestion] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const listRef = useRef<FlatList<AiChatMessage>>(null);
+
+  const gameState: AiGameState = useMemo(
+    () => ({
+      level: game.level,
+      xp: game.xp,
+      finCoin: game.finCoin,
+
+      mortgageStatus: game.mortgageStatus,
+      mortgage: game.mortgage,
+
+      activeDeposit: game.activeDeposit,
+      depositRemainingSeconds: game.depositRemainingSeconds,
+
+      activeLoan: game.activeLoan,
+      loanRemainingSeconds: game.loanRemainingSeconds,
+
+      homeBills: game.homeBills,
+      homeComfort: game.homeComfort,
+      homeDiscipline: game.homeDiscipline,
+      homeEvent: game.homeEvent,
+
+      activeJobId: game.activeJobId,
+      ownedPropertyId: game.ownedPropertyId,
+      activeBoostIds: game.activeBoostIds,
+      boostOfferIds: game.boostOfferIds,
+      nextSalaryAvailableAt: game.nextSalaryAvailableAt,
+    }),
+    [
+      game.level,
+      game.xp,
+      game.finCoin,
+      game.mortgageStatus,
+      game.mortgage,
+      game.activeDeposit,
+      game.depositRemainingSeconds,
+      game.activeLoan,
+      game.loanRemainingSeconds,
+      game.homeBills,
+      game.homeComfort,
+      game.homeDiscipline,
+      game.homeEvent,
+      game.activeJobId,
+      game.ownedPropertyId,
+      game.activeBoostIds,
+      game.boostOfferIds,
+      game.nextSalaryAvailableAt,
+    ]
+  );
+
+  const sendQuestion = async () => {
+    const trimmedQuestion = question.trim();
+
+    if (!trimmedQuestion || isLoading) {
+      return;
+    }
+
+    const userMessage: AiChatMessage = {
+      id: `user_${Date.now()}`,
+      role: 'user',
+      text: trimmedQuestion,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setQuestion('');
+    setIsLoading(true);
+
+    try {
+      const answer = await askAiAdvisor(trimmedQuestion, gameState);
+
+      const assistantMessage: AiChatMessage = {
+        id: `assistant_${Date.now()}`,
+        role: 'assistant',
+        text: answer,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error: any) {
+      console.log('[AdvisorScreen] AI error:', error);
+
+      const errorMessage: AiChatMessage = {
+        id: `error_${Date.now()}`,
+        role: 'assistant',
+        text:
+          error?.message ||
+          'Не получилось получить ответ от ИИ-помощника. Проверь, что локальный сервер запущен и IP-адрес указан правильно.',
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
+
+  const renderMessage = ({ item }: { item: AiChatMessage }) => {
+    const isUser = item.role === 'user';
+
+    return (
+      <View
+        style={[
+          styles.messageBubble,
+          isUser ? styles.userBubble : styles.assistantBubble,
+        ]}
+      >
+        <Text style={[styles.messageText, isUser && styles.userMessageText]}>
+          {item.text}
+        </Text>
+      </View>
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Советник</Text>
-          <Text style={styles.subtitle}>
-            Получай рекомендации и принимай более разумные финансовые решения
-          </Text>
-        </View>
-
-        <TutorialTarget id="advisor-screen">
-          <View style={styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.avatarWrap}>
-                <FontAwesome5 name="robot" size={28} color={colors.primary} />
-              </View>
-
-              <View style={styles.heroTextBlock}>
-                <Text style={styles.heroName}>Fin Advisor</Text>
-                <Text style={styles.heroRole}>Твой помощник по финансам</Text>
-              </View>
-            </View>
-
-            <Text style={styles.heroDescription}>
-              Я подскажу, как лучше управлять деньгами, избегать лишних трат и
-              принимать более безопасные финансовые решения.
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Советник</Text>
+            <Text style={styles.subtitle}>
+              Задай вопрос о деньгах, миссиях или игровых транзакциях
             </Text>
+          </View>
 
-            <View style={styles.heroStatsRow}>
-              <View style={styles.heroStatChip}>
-                <Ionicons name="flash" size={16} color="#D9A520" />
-                <Text style={styles.heroStatText}>+ советы каждый день</Text>
+          <TutorialTarget id="advisor-screen">
+            <View style={styles.heroCard}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.avatarWrap}>
+                  <FontAwesome5 name="robot" size={28} color={colors.primary} />
+                </View>
+
+                <View style={styles.heroTextBlock}>
+                  <Text style={styles.heroName}>Fin Advisor</Text>
+                  <Text style={styles.heroRole}>ИИ-помощник по финансам</Text>
+                </View>
               </View>
 
-              <View style={styles.heroStatChip}>
-                <MaterialCommunityIcons
-                  name="brain"
-                  size={16}
-                  color={colors.primary}
-                />
-                <Text style={styles.heroStatText}>Практические подсказки</Text>
+              <Text style={styles.heroDescription}>
+                Я анализирую твоё игровое состояние и объясняю, почему
+                изменился баланс, как работают кредиты, вклады, ипотека, счета
+                и миссии.
+              </Text>
+
+              <View style={styles.heroStatsRow}>
+                <View style={styles.heroStatChip}>
+                  <Ionicons name="wallet-outline" size={16} color="#D9A520" />
+                  <Text style={styles.heroStatText}>{game.finCoin} FC</Text>
+                </View>
+
+                <View style={styles.heroStatChip}>
+                  <Ionicons
+                    name="star-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.heroStatText}>Уровень {game.level}</Text>
+                </View>
               </View>
             </View>
-          </View>
-        </TutorialTarget>
+          </TutorialTarget>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Совет дня</Text>
-          <Text style={styles.sectionSubtitle}>
-            Применяй подсказки на практике
-          </Text>
-        </View>
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messagesContainer}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => {
+              listRef.current?.scrollToEnd({ animated: true });
+            }}
+          />
 
-        <View style={styles.tipCard}>
-          <View style={styles.tipHeaderRow}>
-            <View style={styles.tipIconWrap}>
-              <Ionicons
-                name={activeTip.icon as any}
-                size={24}
-                color={colors.primary}
-              />
+          {isLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.loadingText}>Помощник думает...</Text>
             </View>
-
-            <View style={styles.tipHeaderTextBlock}>
-              <Text style={styles.tipCategory}>{activeTip.category}</Text>
-              <Text style={styles.tipTitle}>{activeTip.title}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.tipText}>{activeTip.text}</Text>
-
-          <TouchableOpacity style={styles.primaryButton} activeOpacity={0.88}>
-            <Text style={styles.primaryButtonText}>{activeTip.action}</Text>
-          </TouchableOpacity>
+          ) : null}
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Быстрые рекомендации</Text>
-        </View>
+        <View style={styles.inputContainer}>
+          <TextInput
+            value={question}
+            onChangeText={setQuestion}
+            placeholder="Например: почему уменьшился баланс?"
+            placeholderTextColor="#8A9A95"
+            style={styles.input}
+            multiline
+          />
 
-        <View style={styles.recommendationCard}>
-          <View style={styles.recommendationTopRow}>
-            <View style={styles.recommendationIconWrap}>
-              <Ionicons name="trending-down-outline" size={22} color="#C87B2A" />
-            </View>
-            <Text style={styles.recommendationTitle}>Сократи импульсивные покупки</Text>
-          </View>
-          <Text style={styles.recommendationText}>
-            Перед незапланированной покупкой подожди 24 часа. Часто желание купить
-            проходит, и бюджет остаётся целым.
-          </Text>
+          <Pressable
+            style={[
+              styles.sendButton,
+              (!question.trim() || isLoading) && styles.sendButtonDisabled,
+            ]}
+            onPress={sendQuestion}
+            disabled={!question.trim() || isLoading}
+          >
+            <Ionicons name="send" size={20} color="#FFFFFF" />
+          </Pressable>
         </View>
-
-        <View style={styles.recommendationCard}>
-          <View style={styles.recommendationTopRow}>
-            <View style={styles.recommendationIconWrap}>
-              <Ionicons name="cash-outline" size={22} color="#C87B2A" />
-            </View>
-            <Text style={styles.recommendationTitle}>Разделяй деньги по целям</Text>
-          </View>
-          <Text style={styles.recommendationText}>
-            Удобно мысленно делить бюджет на обязательные траты, личные расходы и
-            накопления. Так проще контролировать финансы.
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          activeOpacity={0.88}
-          onPress={handleNextTip}
-        >
-          <Text style={styles.secondaryButtonText}>Получить ещё совет</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -173,10 +253,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F1E4',
   },
+  keyboardView: {
+    flex: 1,
+  },
   content: {
+    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 28,
   },
   header: {
     marginBottom: 18,
@@ -206,7 +289,7 @@ const styles = StyleSheet.create({
       height: 4,
     },
     elevation: 3,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -236,8 +319,8 @@ const styles = StyleSheet.create({
     color: '#6A7975',
   },
   heroDescription: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     color: '#31433F',
     marginBottom: 16,
   },
@@ -260,117 +343,82 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textDark,
   },
-  sectionHeader: {
-    marginBottom: 14,
+  messagesContainer: {
+    paddingTop: 8,
+    paddingBottom: 18,
   },
-  sectionTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: colors.textDark,
-  },
-  sectionSubtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#6A7975',
-  },
-  tipCard: {
-    backgroundColor: '#FFF7DE',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#F1E3B4',
-    marginBottom: 24,
-  },
-  tipHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  tipIconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#F3E7B8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  tipHeaderTextBlock: {
-    flex: 1,
-  },
-  tipCategory: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#9C7A1C',
-    marginBottom: 4,
-  },
-  tipTitle: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '900',
-    color: colors.textDark,
-  },
-  tipText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#31433F',
-    marginBottom: 16,
-  },
-  primaryButton: {
-    backgroundColor: colors.accent,
+  messageBubble: {
+    maxWidth: '86%',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     borderRadius: 18,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: colors.textDark,
-  },
-  recommendationCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EFE7D6',
-    marginBottom: 14,
-  },
-  recommendationTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 10,
   },
-  recommendationIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFF1D9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  assistantBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 6,
+    borderWidth: 1,
+    borderColor: '#EFE7D6',
   },
-  recommendationTitle: {
-    flex: 1,
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '800',
-    color: colors.textDark,
-  },
-  recommendationText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#53625D',
-  },
-  secondaryButton: {
+  userBubble: {
+    alignSelf: 'flex-end',
     backgroundColor: colors.primary,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
+    borderTopRightRadius: 6,
   },
-  secondaryButtonText: {
-    fontSize: 17,
-    fontWeight: '900',
+  messageText: {
+    fontSize: 15,
+    lineHeight: 21,
+    color: '#21312E',
+  },
+  userMessageText: {
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6A7975',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
+    backgroundColor: '#F4EEDB',
+    borderTopWidth: 1,
+    borderTopColor: '#E6DFCF',
+  },
+  input: {
+    flex: 1,
+    minHeight: 46,
+    maxHeight: 110,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E6DFCF',
+    fontSize: 15,
+    color: '#21312E',
+  },
+  sendButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.45,
   },
 });
