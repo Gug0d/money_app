@@ -1,6 +1,6 @@
 // src/screens/missions/MissionsScreen.tsx
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { CompositeScreenProps } from '@react-navigation/native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -18,19 +20,219 @@ import colors from '../../constants/colors';
 import TutorialTarget from '../../components/tutorial/TutorialTarget';
 import { useGame } from '../../store/GameContext';
 import { generateAiMissions } from '../../services/ai';
-import { AiGameState } from '../../types/ai';
 import { Mission } from '../../types/Mission';
+import { RootTabParamList } from '../../navigation/AppNavigator';
 import { MissionsStackParamList } from './MissionDetailsScreen';
 
-type Props = NativeStackScreenProps<MissionsStackParamList, 'MissionsList'>;
+type Props = CompositeScreenProps<
+  NativeStackScreenProps<MissionsStackParamList, 'MissionsList'>,
+  BottomTabScreenProps<RootTabParamList>
+>;
+
+const fallbackMissions: Mission[] = [
+  {
+    id: 'fallback_budget_1',
+    title: 'Планирование расходов',
+    description: 'Проверь, умеешь ли ты оценивать траты перед покупкой.',
+    difficulty: 'Легко',
+    xpReward: 25,
+    finCoinReward: 15,
+    type: 'quiz',
+    question: 'Что лучше сделать перед крупной покупкой?',
+    options: [
+      {
+        id: 'a',
+        text: 'Проверить бюджет и обязательные расходы',
+        isCorrect: true,
+        explanation:
+          'Так игрок понимает, хватит ли денег на важные платежи.',
+      },
+      {
+        id: 'b',
+        text: 'Купить сразу, пока хочется',
+        isCorrect: false,
+        explanation:
+          'Импульсивная покупка может привести к нехватке денег.',
+      },
+      {
+        id: 'c',
+        text: 'Потратить все FinCoin',
+        isCorrect: false,
+        explanation:
+          'Если потратить всё, у игрока не останется резерва.',
+      },
+    ],
+  },
+  {
+    id: 'fallback_home_1',
+    title: 'Домашние счета',
+    description: 'Разберись, зачем оплачивать обязательные расходы вовремя.',
+    difficulty: 'Легко',
+    xpReward: 30,
+    finCoinReward: 18,
+    type: 'quiz',
+    question: 'Почему лучше оплачивать счета вовремя?',
+    options: [
+      {
+        id: 'a',
+        text: 'Чтобы избежать штрафов и сохранить дисциплину',
+        isCorrect: true,
+        explanation:
+          'Своевременная оплата помогает избежать лишних расходов.',
+      },
+      {
+        id: 'b',
+        text: 'Чтобы быстрее потратить деньги',
+        isCorrect: false,
+        explanation:
+          'Цель не в быстрой трате, а в контроле обязательств.',
+      },
+      {
+        id: 'c',
+        text: 'Потому что счета никак не влияют на игру',
+        isCorrect: false,
+        explanation:
+          'В игре счета могут влиять на баланс и состояние дома.',
+      },
+    ],
+  },
+  {
+    id: 'fallback_deposit_1',
+    title: 'Вклад или трата',
+    description: 'Выбери более грамотное решение для свободных FinCoin.',
+    difficulty: 'Средне',
+    xpReward: 40,
+    finCoinReward: 22,
+    type: 'decision',
+    question:
+      'У игрока есть свободные FinCoin. Что будет более разумным решением?',
+    options: [
+      {
+        id: 'a',
+        text: 'Сначала проверить обязательные расходы, потом открыть вклад',
+        isCorrect: true,
+        explanation:
+          'Перед вкладом важно убедиться, что денег хватит на счета.',
+      },
+      {
+        id: 'b',
+        text: 'Открыть вклад на все деньги без проверки счетов',
+        isCorrect: false,
+        explanation:
+          'Если вложить всё, может не хватить денег на обязательные расходы.',
+      },
+      {
+        id: 'c',
+        text: 'Потратить всё на случайную покупку',
+        isCorrect: false,
+        explanation:
+          'Такая трата не помогает создать финансовую устойчивость.',
+      },
+    ],
+  },
+  {
+    id: 'fallback_credit_1',
+    title: 'Ответственный кредит',
+    description: 'Проверь, понимаешь ли ты кредитную нагрузку.',
+    difficulty: 'Средне',
+    xpReward: 45,
+    finCoinReward: 25,
+    type: 'quiz',
+    question: 'Что важно учитывать перед оформлением кредита?',
+    options: [
+      {
+        id: 'a',
+        text: 'Платёж, срок и общую переплату',
+        isCorrect: true,
+        explanation:
+          'Кредит нужно оценивать не только по сумме, но и по будущим платежам.',
+      },
+      {
+        id: 'b',
+        text: 'Только сумму, которую дают сразу',
+        isCorrect: false,
+        explanation:
+          'Важно помнить, что кредит нужно возвращать с процентами.',
+      },
+      {
+        id: 'c',
+        text: 'Можно ли не возвращать долг',
+        isCorrect: false,
+        explanation:
+          'Просрочки приводят к штрафам и ухудшают положение игрока.',
+      },
+    ],
+  },
+  {
+    id: 'fallback_strategy_1',
+    title: 'Финансовая стратегия',
+    description: 'Выбери решение для долгосрочной стабильности.',
+    difficulty: 'Сложно',
+    xpReward: 60,
+    finCoinReward: 35,
+    type: 'decision',
+    question:
+      'У игрока есть кредит, неоплаченные счета и возможность купить буст. Что лучше сделать сначала?',
+    options: [
+      {
+        id: 'a',
+        text: 'Сначала закрыть обязательные платежи',
+        isCorrect: true,
+        explanation:
+          'Обязательные платежи важнее дополнительных покупок и снижают риск штрафов.',
+      },
+      {
+        id: 'b',
+        text: 'Купить буст, не проверяя счета и кредит',
+        isCorrect: false,
+        explanation:
+          'Буст может быть полезен, но обязательства обычно важнее.',
+      },
+      {
+        id: 'c',
+        text: 'Игнорировать платежи и ждать',
+        isCorrect: false,
+        explanation:
+          'Ожидание может привести к штрафам и ухудшению состояния игрока.',
+      },
+    ],
+  },
+];
+
+function getDifficultyStyle(difficulty: Mission['difficulty']) {
+  switch (difficulty) {
+    case 'Легко':
+      return styles.easyBadge;
+    case 'Средне':
+      return styles.mediumBadge;
+    case 'Сложно':
+      return styles.hardBadge;
+    default:
+      return styles.easyBadge;
+  }
+}
+
+function getDifficultyIcon(difficulty: Mission['difficulty']) {
+  switch (difficulty) {
+    case 'Легко':
+      return 'leaf-outline';
+    case 'Средне':
+      return 'flash-outline';
+    case 'Сложно':
+      return 'flame-outline';
+    default:
+      return 'leaf-outline';
+  }
+}
 
 export default function MissionsScreen({ navigation }: Props) {
   const game = useGame();
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [aiMissions, setAiMissions] = useState<Mission[]>([]);
+  const [missions, setMissions] = useState<Mission[]>(fallbackMissions);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAiFallback, setIsAiFallback] = useState(false);
 
-  const gameState: AiGameState = useMemo(
+  const gameState = useMemo(
     () => ({
       level: game.level,
       xp: game.xp,
@@ -78,40 +280,42 @@ export default function MissionsScreen({ navigation }: Props) {
     ]
   );
 
-  const handleGenerateMissions = async () => {
-    if (isGenerating) {
-      return;
-    }
+  const loadAiMissions = async () => {
+    setIsLoading(true);
+    setIsAiFallback(false);
 
     try {
-      setIsGenerating(true);
-
-      const missions = await generateAiMissions({
+      const generatedMissions = await generateAiMissions({
         level: game.level,
         count: 5,
         gameState,
       });
 
-      setAiMissions(missions);
+      if (!generatedMissions || generatedMissions.length === 0) {
+        setMissions(fallbackMissions);
+        setIsAiFallback(true);
+        return;
+      }
 
-      Alert.alert(
-        'Готово',
-        `ИИ сгенерировал ${missions.length} миссий разной сложности.`
-      );
-    } catch (error: any) {
+      setMissions(generatedMissions);
+    } catch (error) {
       console.log('[MissionsScreen] generate missions error:', error);
-
-      Alert.alert(
-        'Ошибка',
-        error?.message ||
-          'Не получилось сгенерировать миссии. Проверь, что локальный ИИ-сервер запущен.'
-      );
+      setMissions(fallbackMissions);
+      setIsAiFallback(true);
     } finally {
-      setIsGenerating(false);
+      setIsLoading(false);
     }
   };
 
-  const openMission = (mission: Mission) => {
+  useEffect(() => {
+    loadAiMissions();
+  }, [game.level]);
+
+  const handleRefreshMissions = async () => {
+    await loadAiMissions();
+  };
+
+  const handleOpenMission = (mission: Mission) => {
     navigation.navigate('MissionDetails', {
       mission,
     });
@@ -122,45 +326,43 @@ export default function MissionsScreen({ navigation }: Props) {
       <TouchableOpacity
         style={styles.missionCard}
         activeOpacity={0.88}
-        onPress={() => openMission(item)}
+        onPress={() => handleOpenMission(item)}
       >
-        <View style={styles.missionTopRow}>
-          <View style={styles.missionIconWrap}>
-            <Ionicons name="sparkles" size={22} color={colors.primary} />
+        <View style={styles.missionHeader}>
+          <View style={[styles.difficultyBadge, getDifficultyStyle(item.difficulty)]}>
+            <Ionicons
+              name={getDifficultyIcon(item.difficulty)}
+              size={15}
+              color={colors.primaryDark}
+            />
+            <Text style={styles.difficultyText}>{item.difficulty}</Text>
           </View>
 
-          <View style={styles.missionHeaderText}>
-            <Text
-              style={[
-                styles.missionDifficulty,
-                item.difficulty === 'Средне' && styles.mediumDifficulty,
-                item.difficulty === 'Сложно' && styles.hardDifficulty,
-              ]}
-            >
-              {item.difficulty}
-            </Text>
+          <View style={styles.rewardRow}>
+            <View style={styles.rewardChip}>
+              <Ionicons name="star-outline" size={15} color="#D9A520" />
+              <Text style={styles.rewardText}>{item.xpReward} XP</Text>
+            </View>
 
-            <Text style={styles.missionTitle}>{item.title}</Text>
+            <View style={styles.rewardChip}>
+              <Ionicons name="logo-usd" size={15} color="#D9A520" />
+              <Text style={styles.rewardText}>{item.finCoinReward} FC</Text>
+            </View>
           </View>
         </View>
 
+        <Text style={styles.missionTitle}>{item.title}</Text>
+
         <Text style={styles.missionDescription}>{item.description}</Text>
 
-        {item.question ? (
-          <Text style={styles.missionQuestion} numberOfLines={2}>
-            {item.question}
+        <View style={styles.missionFooter}>
+          <Text style={styles.missionType}>
+            {item.type === 'decision' ? 'Финансовое решение' : 'Викторина'}
           </Text>
-        ) : null}
 
-        <View style={styles.rewardRow}>
-          <View style={styles.rewardChip}>
-            <Ionicons name="star-outline" size={15} color="#D9A520" />
-            <Text style={styles.rewardText}>+{item.xpReward} XP</Text>
-          </View>
-
-          <View style={styles.rewardChip}>
-            <Ionicons name="wallet-outline" size={15} color={colors.primary} />
-            <Text style={styles.rewardText}>+{item.finCoinReward} FC</Text>
+          <View style={styles.openMissionButton}>
+            <Text style={styles.openMissionButtonText}>Открыть</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
           </View>
         </View>
       </TouchableOpacity>
@@ -169,100 +371,104 @@ export default function MissionsScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList
-        data={aiMissions}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMission}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-        ListHeaderComponent={
-          <>
-            <View style={styles.header}>
-              <Text style={styles.title}>Цели</Text>
-              <Text style={styles.subtitle}>
-                Проходи миссии, отвечай на вопросы и развивай финансовую
-                грамотность
-              </Text>
-            </View>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            activeOpacity={0.85}
+            onPress={() =>
+              navigation.navigate('Life', {
+                screen: 'LifeMain',
+              })
+            }
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.primaryDark} />
+          </TouchableOpacity>
 
-            <TutorialTarget id="missions-screen">
-              <View style={styles.generatorCard}>
-                <View style={styles.generatorTopRow}>
-                  <View style={styles.generatorIconWrap}>
-                    <Ionicons
-                      name="sparkles"
-                      size={28}
-                      color={colors.primary}
-                    />
-                  </View>
-
-                  <View style={styles.generatorTextBlock}>
-                    <Text style={styles.generatorTitle}>
-                      ИИ-генератор миссий
-                    </Text>
-                    <Text style={styles.generatorSubtitle}>
-                      Создаёт сразу 5 вопросов разной сложности под твой уровень
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.difficultyRow}>
-                  <View style={styles.difficultyChip}>
-                    <Text style={styles.difficultyChipText}>Легко</Text>
-                  </View>
-
-                  <View style={styles.difficultyChip}>
-                    <Text style={styles.difficultyChipText}>Средне</Text>
-                  </View>
-
-                  <View style={styles.difficultyChip}>
-                    <Text style={styles.difficultyChipText}>Сложно</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.generateButton,
-                    isGenerating && styles.generateButtonDisabled,
-                  ]}
-                  activeOpacity={0.88}
-                  onPress={handleGenerateMissions}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="add-circle" size={22} color="#FFFFFF" />
-                      <Text style={styles.generateButtonText}>
-                        Сгенерировать 5 миссий
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </TutorialTarget>
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Сгенерированные миссии</Text>
-              <Text style={styles.sectionSubtitle}>
-                Нажми на карточку, чтобы пройти миссию
-              </Text>
-            </View>
-          </>
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyCard}>
-            <Ionicons name="document-text-outline" size={34} color="#8A9A95" />
-
-            <Text style={styles.emptyTitle}>Миссий пока нет</Text>
-
-            <Text style={styles.emptyText}>
-              Нажми «Сгенерировать 5 миссий», чтобы ИИ создал набор вопросов.
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.title}>Миссии</Text>
+            <Text style={styles.subtitle}>
+              Выполняй задания, получай опыт и FinCoin
             </Text>
           </View>
-        }
-      />
+        </View>
+
+        <TutorialTarget id="missions-list">
+          <View style={styles.heroCard}>
+            <View style={styles.heroIcon}>
+              <Ionicons name="checkmark-circle" size={34} color={colors.primary} />
+            </View>
+
+            <View style={styles.heroTextBlock}>
+              <Text style={styles.heroTitle}>Развивай финансовые навыки</Text>
+              <Text style={styles.heroDescription}>
+                Отвечай на вопросы, принимай решения и повышай уровень героя.
+              </Text>
+            </View>
+          </View>
+        </TutorialTarget>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Уровень</Text>
+            <Text style={styles.statValue}>{game.level}</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Опыт</Text>
+            <Text style={styles.statValue}>{game.xp} XP</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Монеты</Text>
+            <Text style={styles.statValue}>{game.finCoin}</Text>
+          </View>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Доступные миссии</Text>
+
+            {isAiFallback ? (
+              <Text style={styles.sectionSubtitle}>
+                Показаны стандартные миссии
+              </Text>
+            ) : (
+              <Text style={styles.sectionSubtitle}>
+                Миссии подобраны под текущий уровень
+              </Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.refreshButton}
+            activeOpacity={0.85}
+            onPress={handleRefreshMissions}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.primaryDark} />
+            ) : (
+              <Ionicons name="refresh" size={20} color={colors.primaryDark} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {isLoading && missions.length === 0 ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Загружаем миссии...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={missions}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMission}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -273,12 +479,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F1E4',
   },
   content: {
+    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 28,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 18,
+    gap: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F6E7A8',
+    borderWidth: 2,
+    borderColor: '#E1BE52',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   title: {
     fontSize: 34,
@@ -286,198 +508,210 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   subtitle: {
-    marginTop: 6,
-    fontSize: 16,
-    lineHeight: 22,
+    marginTop: 4,
+    fontSize: 15,
+    lineHeight: 21,
     color: '#5E6E69',
   },
-  generatorCard: {
+  heroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 20,
+    borderRadius: 26,
+    padding: 18,
     borderWidth: 1,
     borderColor: '#EFE7D6',
+    marginBottom: 14,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    elevation: 3,
-    marginBottom: 22,
+    elevation: 2,
   },
-  generatorTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  generatorIconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+  heroIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#EAF6F3',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  generatorTextBlock: {
+  heroTextBlock: {
     flex: 1,
   },
-  generatorTitle: {
-    fontSize: 22,
+  heroTitle: {
+    fontSize: 20,
     fontWeight: '900',
-    color: colors.textDark,
+    color: colors.primaryDark,
   },
-  generatorSubtitle: {
-    marginTop: 4,
+  heroDescription: {
+    marginTop: 5,
     fontSize: 14,
-    lineHeight: 19,
-    color: '#6A7975',
+    lineHeight: 20,
+    color: '#5E6E69',
   },
-  difficultyRow: {
+  statsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 9,
+    gap: 10,
     marginBottom: 16,
   },
-  difficultyChip: {
-    backgroundColor: '#FFF8E5',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#F1E3B4',
-  },
-  difficultyChipText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: colors.textDark,
-  },
-  generateButton: {
-    minHeight: 52,
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+    borderWidth: 1,
+    borderColor: '#EFE7D6',
   },
-  generateButtonDisabled: {
-    opacity: 0.7,
+  statLabel: {
+    fontSize: 13,
+    color: '#72817D',
+    marginBottom: 5,
   },
-  generateButtonText: {
-    fontSize: 16,
+  statValue: {
+    fontSize: 18,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: colors.primaryDark,
   },
   sectionHeader: {
-    marginBottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
-    color: colors.textDark,
+    color: colors.primaryDark,
   },
   sectionSubtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#6A7975',
+    marginTop: 3,
+    fontSize: 13,
+    color: '#72817D',
+  },
+  refreshButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: '#F6E7A8',
+    borderWidth: 1,
+    borderColor: '#E1BE52',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listContent: {
+    paddingBottom: 24,
   },
   missionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#EFE7D6',
-    marginBottom: 14,
-  },
-  missionTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
     marginBottom: 12,
   },
-  missionIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EAF6F3',
-    justifyContent: 'center',
+  missionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginRight: 12,
+    gap: 10,
+    marginBottom: 12,
   },
-  missionHeaderText: {
-    flex: 1,
+  difficultyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 5,
   },
-  missionDifficulty: {
+  easyBadge: {
+    backgroundColor: '#EAF6F3',
+  },
+  mediumBadge: {
+    backgroundColor: '#FFF1C7',
+  },
+  hardBadge: {
+    backgroundColor: '#FFE2D8',
+  },
+  difficultyText: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#2E7D32',
-    marginBottom: 4,
-  },
-  mediumDifficulty: {
-    color: '#9C7A1C',
-  },
-  hardDifficulty: {
-    color: '#C62828',
-  },
-  missionTitle: {
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: '900',
-    color: colors.textDark,
-  },
-  missionDescription: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#53625D',
-    marginBottom: 10,
-  },
-  missionQuestion: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#21312E',
-    fontWeight: '700',
-    marginBottom: 12,
+    color: colors.primaryDark,
   },
   rewardRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 6,
   },
   rewardChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF8E5',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    gap: 4,
   },
   rewardText: {
-    marginLeft: 5,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
-    color: colors.textDark,
+    color: colors.primaryDark,
   },
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: '#EFE7D6',
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    marginTop: 10,
+  missionTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: colors.textDark,
+    color: colors.primaryDark,
+    marginBottom: 6,
   },
-  emptyText: {
-    marginTop: 6,
+  missionDescription: {
     fontSize: 15,
-    lineHeight: 22,
-    color: '#6A7975',
-    textAlign: 'center',
+    lineHeight: 21,
+    color: '#4B5D58',
+    marginBottom: 14,
+  },
+  missionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  missionType: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#72817D',
+  },
+  openMissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 6,
+  },
+  openMissionButtonText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  loadingBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 80,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#72817D',
   },
 });

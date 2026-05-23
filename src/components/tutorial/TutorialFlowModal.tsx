@@ -38,6 +38,8 @@ function getStepIcon(target: TutorialActionTarget, locked?: boolean) {
       return 'home';
     case 'life':
       return 'business';
+    case 'profile':
+      return 'person';
     case 'bank':
       return 'card';
     case 'challenges':
@@ -60,13 +62,15 @@ function getTargetButtonText(target?: TutorialActionTarget) {
     case 'challenges':
       return 'Показать Челленджи';
     case 'missions':
-      return 'Показать Цели';
+      return 'Показать Миссии';
     case 'advisor':
       return 'Показать Советы';
     case 'bank':
       return 'Показать Банк';
     case 'life':
       return 'Показать Жизнь';
+    case 'profile':
+      return 'Показать профиль';
     default:
       return 'Дальше';
   }
@@ -538,9 +542,9 @@ const styles = StyleSheet.create({
   },
   description: {
     marginTop: 9,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#60716C',
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#51635E',
   },
   lockedBox: {
     marginTop: 12,
@@ -550,56 +554,55 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E3C46A',
   },
   lockedText: {
     flex: 1,
     marginLeft: 8,
     fontSize: 13,
     lineHeight: 18,
-    color: '#8A5A00',
     fontWeight: '800',
+    color: '#8A5A00',
   },
   footer: {
-    marginTop: 15,
+    marginTop: 16,
     flexDirection: 'row',
     gap: 10,
   },
   backButton: {
-    width: 105,
-    height: 48,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D8CDB6',
-    justifyContent: 'center',
+    minWidth: 92,
+    borderRadius: 18,
+    paddingVertical: 13,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    backgroundColor: '#EEF3F1',
   },
   backButtonText: {
-    color: '#48655F',
     fontSize: 15,
     fontWeight: '900',
-  },
-  nextButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 7,
-    paddingHorizontal: 12,
-  },
-  nextButtonText: {
-    flexShrink: 1,
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
+    color: colors.primaryDark,
   },
   disabledButton: {
     opacity: 0.45,
   },
   disabledButtonText: {
-    color: '#98A6A2',
+    color: '#8C9894',
+  },
+  nextButton: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: colors.primary,
+  },
+  nextButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
 });

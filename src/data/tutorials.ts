@@ -2,6 +2,7 @@ export type TutorialActionTarget =
   | 'none'
   | 'home'
   | 'life'
+  | 'profile'
   | 'missions'
   | 'advisor'
   | 'household'
@@ -57,19 +58,19 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
         title: 'Добро пожаловать в Finity!',
         subtitle: 'Это игра про финансовую жизнь',
         description:
-          'Здесь ты развиваешь персонажа, выполняешь задания, получаешь опыт, зарабатываешь FinCoin и постепенно открываешь новые финансовые механики.',
+          'Здесь ты развиваешь персонажа, выполняешь миссии, получаешь опыт, зарабатываешь FinCoin и постепенно открываешь новые финансовые механики.',
         actionText: 'Дальше',
         actionTarget: 'none',
       },
       {
-        id: 'home-main',
-        title: 'Главный экран',
-        subtitle: 'Здесь видно текущее состояние игрока',
+        id: 'home-play',
+        title: 'Начало игры',
+        subtitle: 'Одна главная кнопка',
         description:
-          'На главном экране отображается основная информация о персонаже: прогресс, деньги, уровень и текущие игровые показатели. С него удобно начинать игровой день.',
+          'На стартовом экране есть кнопка «Играть». Она сразу переносит игрока в режим жизни, где находятся основные игровые разделы.',
         actionText: 'Дальше',
         actionTarget: 'home',
-        targetKey: 'home-main',
+        targetKey: 'home-play-button',
         targetPadding: 10,
         highlight: {
           top: 0,
@@ -77,15 +78,53 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
           width: 0,
           height: 0,
           borderRadius: 28,
+          cardPosition: 'top',
+        },
+      },
+      {
+        id: 'life-main',
+        title: 'Карта жизни',
+        subtitle: 'Главный экран',
+        description:
+          'Здесь находятся основные разделы: Дом, Челленджи, Банк, Советы и Миссии. Переходы выполняются через кружки на карте.',
+        actionText: 'Дальше',
+        actionTarget: 'life',
+        targetKey: 'life-main',
+        targetPadding: 8,
+        highlight: {
+          top: 0,
+          left: 0,
+          width: 0,
+          height: 0,
+          borderRadius: 30,
+          cardPosition: 'top',
+        },
+      },
+      {
+        id: 'life-profile',
+        title: 'Профиль игрока',
+        subtitle: 'Теперь он находится сверху слева',
+        description:
+          'Кнопка профиля перенесена в верхний левый угол. Здесь игрок может открыть профиль, посмотреть данные аккаунта и использовать тестовые функции.',
+        actionText: 'Дальше',
+        actionTarget: 'life',
+        targetKey: 'life-profile-button',
+        targetPadding: 10,
+        highlight: {
+          top: 0,
+          left: 0,
+          width: 0,
+          height: 0,
+          borderRadius: 24,
           cardPosition: 'bottom',
         },
       },
       {
         id: 'household-main',
-        title: 'Дом и быт',
-        subtitle: 'Раздел обязательных бытовых расходов',
+        title: 'Дом',
+        subtitle: 'Раздел бытовых расходов',
         description:
-          'В разделе «Дом» игрок следит за бытовыми расходами и состоянием жилья. Этот экран помогает понять, что в реальной жизни часть дохода постоянно уходит на обязательные платежи.',
+          'В разделе «Дом» игрок следит за счетами, комфортом и бытовыми проблемами. Этот экран показывает, что часть денег всегда уходит на обязательные расходы.',
         actionText: 'Дальше',
         actionTarget: 'household',
         targetKey: 'household-main',
@@ -104,7 +143,7 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
         title: 'Случайные события',
         subtitle: 'Не все расходы можно предсказать',
         description:
-          'Иногда в разделе «Дом» появляются случайные события: поломки, срочные покупки или бытовые проблемы. Они учат оставлять запас денег, потому что непредвиденные расходы могут появиться в любой момент.',
+          'Иногда появляются случайные события: поломки, срочные покупки или бытовые проблемы. Они учат оставлять запас денег на непредвиденные ситуации.',
         actionText: 'Дальше',
         actionTarget: 'household',
         targetKey: 'household-events',
@@ -123,7 +162,7 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
         title: 'Оплата счетов',
         subtitle: 'Плати вовремя, чтобы избежать штрафов',
         description:
-          'Ниже находятся счета за интернет, электричество, воду и другие услуги. Если долго не оплачивать счета, игрок может получить штраф или ухудшить своё финансовое положение.',
+          'Счета за интернет, электричество, воду и другие услуги нужно оплачивать вовремя. Если откладывать оплату, игрок может получить штраф.',
         actionText: 'Дальше',
         actionTarget: 'household',
         targetKey: 'household-payments',
@@ -139,10 +178,10 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
       },
       {
         id: 'challenges-status',
-        title: 'Работа и челленджи',
-        subtitle: 'Здесь игрок зарабатывает и принимает решения',
+        title: 'Челленджи',
+        subtitle: 'Работа и финансовые решения',
         description:
-          'В разделе «Челленджи» игрок сталкивается с финансовыми ситуациями. Здесь можно работать, получать доход, покупать имущество и выбирать действия, которые влияют на развитие персонажа.',
+          'В разделе «Челленджи» игрок зарабатывает деньги, получает работу и сталкивается с финансовыми ситуациями, которые влияют на развитие персонажа.',
         actionText: 'Дальше',
         actionTarget: 'challenges',
         targetKey: 'challenges-status',
@@ -157,30 +196,30 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
         },
       },
       {
-        id: 'missions-list',
-        title: 'Цели и миссии',
-        subtitle: 'Основной способ получать опыт',
+        id: 'missions-on-map',
+        title: 'Миссии',
+        subtitle: 'Проверяй знания и развивай персонажа',
         description:
-          'Миссии помогают получать XP. Когда опыта становится достаточно, уровень повышается. С каждым новым уровнем открываются новые игровые и финансовые возможности.',
+          'В миссиях игрок отвечает на вопросы. За правильные ответы начисляются XP и FinCoin, которые помогают повышать уровень и открывать новые разделы игры.',
         actionText: 'Дальше',
-        actionTarget: 'missions',
-        targetKey: 'mission-first-card',
-        targetPadding: 8,
+        actionTarget: 'life',
+        targetKey: 'life-missions-button',
+        targetPadding: 10,
         highlight: {
           top: 0,
           left: 0,
           width: 0,
           height: 0,
-          borderRadius: 26,
-          cardPosition: 'bottom',
+          borderRadius: 36,
+          cardPosition: 'top',
         },
       },
       {
         id: 'bank-locked',
-        title: 'Раздел «Банк»',
-        subtitle: 'Пока закрыт',
+        title: 'Банк',
+        subtitle: 'Откроется позже',
         description:
-          'Банк — это раздел с финансовыми инструментами: вкладами, кредитами и ипотекой. Сейчас он закрыт, потому что игрок только начинает обучение. Сначала нужно получить базовый опыт.',
+          'Банк пока закрыт. Он станет доступен на 2 уровне. В банке игрок сможет открывать вклады, брать кредиты и пользоваться финансовыми инструментами.',
         actionText: 'Дальше',
         actionTarget: 'life',
         targetKey: 'life-bank-button',
@@ -197,22 +236,22 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
         },
       },
       {
-        id: 'advisor-screen',
-        title: 'Раздел «Советы»',
+        id: 'advisor-on-map',
+        title: 'Советы',
         subtitle: 'Финансовый помощник',
         description:
-          'Советы объясняют игровые механики, помогают понять, что делать дальше, и предупреждают о возможных ошибках. Этот раздел нужен, чтобы игрок лучше понимал свои финансовые решения.',
+          'Раздел «Советы» помогает понять игровые механики, объясняет финансовые решения и подсказывает, что можно сделать дальше.',
         actionText: 'Завершить обучение',
-        actionTarget: 'advisor',
-        targetKey: 'advisor-screen',
-        targetPadding: 8,
+        actionTarget: 'life',
+        targetKey: 'life-advice-button',
+        targetPadding: 10,
         highlight: {
           top: 0,
           left: 0,
           width: 0,
           height: 0,
-          borderRadius: 24,
-          cardPosition: 'bottom',
+          borderRadius: 36,
+          cardPosition: 'top',
         },
       },
     ],

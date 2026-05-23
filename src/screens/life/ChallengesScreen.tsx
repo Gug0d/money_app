@@ -22,6 +22,7 @@ import {
   riskDeals,
 } from '../../constants/challenges';
 import { scaleFinCoinPrice } from '../../store/gameConfig';
+import { getWorkEfficiency } from '../../store/features/useChallengesGame';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Challenges'>;
 
@@ -36,6 +37,8 @@ export default function ChallengesScreen({ navigation }: Props) {
   const {
     level,
     finCoin,
+    homeComfort,
+    homeDiscipline,
 
     activeJobId,
     ownedPropertyId,
@@ -81,8 +84,17 @@ export default function ChallengesScreen({ navigation }: Props) {
     [boostOfferIds]
   );
 
-  const activeSalary = activeJob
+  const workEfficiency = getWorkEfficiency({
+    homeComfort,
+    homeDiscipline,
+  });
+
+  const activeBaseSalary = activeJob
     ? scaleFinCoinPrice(activeJob.salary, level)
+    : 0;
+
+  const activeSalary = activeJob
+    ? Math.round(activeBaseSalary * workEfficiency.multiplier)
     : 0;
 
   const salaryRemainingSeconds =
@@ -208,6 +220,52 @@ export default function ChallengesScreen({ navigation }: Props) {
                 </Text>
               </View>
             </View>
+
+            
+            <View
+                style={[
+                  styles.workEfficiencyBox,
+                  workEfficiency.multiplier < 1 && styles.workEfficiencyBoxWarning,
+                ]}
+              >
+                <View style={styles.workEfficiencyHeader}>
+                  <Ionicons
+                    name={
+                      workEfficiency.multiplier < 1
+                        ? 'warning-outline'
+                        : 'checkmark-circle-outline'
+                    }
+                    size={20}
+                    color={
+                      workEfficiency.multiplier < 1
+                        ? '#8A5A00'
+                        : colors.primary
+                    }
+                  />
+
+                  <Text style={styles.workEfficiencyTitle}>
+                    {workEfficiency.title}
+                  </Text>
+                </View>
+
+                <Text style={styles.workEfficiencyText}>
+                  {workEfficiency.description}
+                </Text>
+
+                <View style={styles.workStatsRow}>
+                  <Text style={styles.workStatText}>
+                    Комфорт: {homeComfort}%
+                  </Text>
+
+                  <Text style={styles.workStatText}>
+                    Дисциплина: {homeDiscipline}%
+                  </Text>
+
+                  <Text style={styles.workStatText}>
+                    Эффективность: {workEfficiency.percent}%
+                  </Text>
+                </View>
+              </View>
 
             {activeBoostIds.length > 0 ? (
               <View style={styles.activeBoostsBox}>
@@ -818,6 +876,61 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: colors.textDark,
     textAlign: 'center',
+  },
+
+
+  workEfficiencyBox: {
+  backgroundColor: '#EAF6F3',
+  borderRadius: 18,
+  padding: 14,
+  marginBottom: 16,
+  borderWidth: 1,
+  borderColor: '#CFE5DD',
+  },
+  workEfficiencyBoxWarning: {
+    backgroundColor: '#FFF1C7',
+    borderColor: '#E3C46A',
+  },
+  workEfficiencyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  workEfficiencyTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: colors.textDark,
+  },
+  workEfficiencyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#4B5D58',
+    marginBottom: 10,
+  },
+  workStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  workStatText: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.textDark,
+  },
+  salaryBlock: {
+    alignItems: 'flex-end',
+  },
+  salaryPenaltyText: {
+    marginTop: 3,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#8A5A00',
+    textDecorationLine: 'line-through',
   },
   emptyBoostCard: {
     backgroundColor: '#F8F2E4',

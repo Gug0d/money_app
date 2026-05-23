@@ -11,8 +11,10 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 
 import colors from '../../constants/colors';
@@ -20,8 +22,11 @@ import TutorialTarget from '../../components/tutorial/TutorialTarget';
 import { useGame } from '../../store/GameContext';
 import { askAiAdvisor } from '../../services/ai';
 import { AiChatMessage, AiGameState } from '../../types/ai';
+import { RootTabParamList } from '../../navigation/AppNavigator';
 
-export default function AdvisorScreen() {
+type Props = BottomTabScreenProps<RootTabParamList, 'Advisor'>;
+
+export default function AdvisorScreen({ navigation }: Props) {
   const game = useGame();
 
   const [messages, setMessages] = useState<AiChatMessage[]>([
@@ -159,10 +164,28 @@ export default function AdvisorScreen() {
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>Советник</Text>
-            <Text style={styles.subtitle}>
-              Задай вопрос о деньгах, миссиях или игровых транзакциях
-            </Text>
+            <TouchableOpacity
+              style={styles.backButton}
+              activeOpacity={0.85}
+              onPress={() =>
+                navigation.navigate('Life', {
+                  screen: 'LifeMain',
+                })
+              }
+            >
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={colors.primaryDark}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.headerTextBlock}>
+              <Text style={styles.title}>Советник</Text>
+              <Text style={styles.subtitle}>
+                Задай вопрос о деньгах, миссиях или игровых транзакциях
+              </Text>
+            </View>
           </View>
 
           <TutorialTarget id="advisor-screen">
@@ -262,7 +285,23 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 18,
+    gap: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F6E7A8',
+    borderWidth: 2,
+    borderColor: '#E1BE52',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   title: {
     fontSize: 34,
@@ -270,9 +309,9 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   subtitle: {
-    marginTop: 6,
-    fontSize: 16,
-    lineHeight: 22,
+    marginTop: 4,
+    fontSize: 15,
+    lineHeight: 21,
     color: '#5E6E69',
   },
   heroCard: {

@@ -1,5 +1,11 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { RootTabParamList } from '../../navigation/AppNavigator';
 import TutorialTarget from '../../components/tutorial/TutorialTarget';
@@ -12,11 +18,13 @@ export default function HomeScreen({ navigation }: Props) {
       <View style={styles.content}>
         <Text style={styles.logoIcon}>F</Text>
         <Text style={styles.logoText}>FINITY</Text>
-        
+
         <TutorialTarget id="home-main">
           <View style={styles.coinSection}>
             <Text style={styles.sparkleLeft}>✦</Text>
+
             <View style={styles.coinShadow} />
+
             <View style={styles.coinOuter}>
               <View style={styles.coinMiddle}>
                 <View style={styles.coinInner}>
@@ -24,6 +32,7 @@ export default function HomeScreen({ navigation }: Props) {
                 </View>
               </View>
             </View>
+
             <Text style={styles.sparkleRight}>✦</Text>
           </View>
         </TutorialTarget>
@@ -34,21 +43,19 @@ export default function HomeScreen({ navigation }: Props) {
           грамотность, играя
         </Text>
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate('MissionsTab')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.buttonText}>Миссии</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate('Life')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.buttonText}>Режим жизнь</Text>
-        </TouchableOpacity>
+        <TutorialTarget id="home-play-button" style={styles.buttonTarget}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() =>
+              navigation.navigate('Life', {
+                screen: 'LifeMain',
+              })
+            }
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buttonText}>Играть</Text>
+          </TouchableOpacity>
+        </TutorialTarget>
       </View>
     </SafeAreaView>
   );
@@ -151,6 +158,9 @@ const styles = StyleSheet.create({
     color: '#F7F1E4',
     textAlign: 'center',
     marginBottom: 32,
+  },
+  buttonTarget: {
+    width: '100%',
   },
   button: {
     width: '100%',

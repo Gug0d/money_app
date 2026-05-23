@@ -209,6 +209,12 @@ function MainTabs({
         });
         break;
 
+      case 'profile':
+        navigation.navigate('Main', {
+          screen: 'Profile',
+        });
+        break;
+
       case 'household':
         navigation.navigate('Main', {
           screen: 'Life',
@@ -274,11 +280,7 @@ function MainTabs({
           tabBarActiveTintColor: '#0C6B61',
           tabBarInactiveTintColor: '#0C6B61',
           tabBarStyle: {
-            backgroundColor: '#F4EEDB',
-            height: 86,
-            paddingTop: 8,
-            paddingBottom: 8,
-            borderTopWidth: 0,
+            display: 'none',
           },
           tabBarLabelStyle: {
             fontSize: 14,

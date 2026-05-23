@@ -11,9 +11,56 @@ const SALARY_COOLDOWN_SECONDS = 60;
 const BOOST_OFFERS_COUNT = 2;
 const BOOST_REFRESH_SECONDS = 120;
 
+export function getWorkEfficiency(params: {
+  homeComfort: number;
+  homeDiscipline: number;
+}) {
+  const { homeComfort, homeDiscipline } = params;
+
+  if (homeDiscipline < 40 || homeComfort < 35) {
+    return {
+      multiplier: 0.6,
+      percent: 60,
+      title: 'Плохая работоспособность',
+      description:
+        'Из-за низкого комфорта или дисциплины герой работает хуже. Зарплата снижена на 40%.',
+    };
+  }
+
+  if (homeDiscipline < 60 || homeComfort < 55) {
+    return {
+      multiplier: 0.75,
+      percent: 75,
+      title: 'Сниженная работоспособность',
+      description:
+        'Герою сложно работать эффективно. Зарплата снижена на 25%.',
+    };
+  }
+
+  if (homeDiscipline < 80 || homeComfort < 70) {
+    return {
+      multiplier: 0.9,
+      percent: 90,
+      title: 'Небольшая усталость',
+      description:
+        'Герой немного теряет концентрацию. Зарплата снижена на 10%.',
+    };
+  }
+
+  return {
+    multiplier: 1,
+    percent: 100,
+    title: 'Отличная работоспособность',
+    description:
+      'Комфорт и дисциплина в норме. Герой получает полную зарплату.',
+  };
+}
+
 type UseChallengesGameParams = {
   level: number;
   finCoin: number;
+  homeComfort: number;
+  homeDiscipline: number;
 
   activeJobId: string | null;
   ownedPropertyId: string | null;
@@ -57,6 +104,8 @@ function getRandomBoostOfferIds(activeBoostIds: string[]) {
 export function useChallengesGame({
   level,
   finCoin,
+  homeComfort,
+  homeDiscipline,
 
   activeJobId,
   ownedPropertyId,
@@ -165,9 +214,19 @@ export function useChallengesGame({
     const hasSalaryBoost = activeBoostIds.includes('salary_boost');
 
     const baseSalary = scaleFinCoinPrice(job.salary, level);
+
+    const workEfficiency = getWorkEfficiency({
+      homeComfort,
+      homeDiscipline,
+    });
+
+    const salaryAfterHomePenalty = Math.round(
+      baseSalary * workEfficiency.multiplier
+    );
+
     const finalSalary = hasSalaryBoost
-      ? Math.round(baseSalary * 1.5)
-      : baseSalary;
+      ? Math.round(salaryAfterHomePenalty * 1.5)
+      : salaryAfterHomePenalty;
 
     const nextFinCoin = finCoin + finalSalary;
     const nextBoostIds = hasSalaryBoost
@@ -190,7 +249,10 @@ export function useChallengesGame({
 
     return {
       success: true,
-      message: `Ты получил зарплату: ${finalSalary} FC. Следующая будет доступна через ${SALARY_COOLDOWN_SECONDS} сек.`,
+      message:
+        workEfficiency.multiplier < 1
+          ? `Ты получил зарплату: ${finalSalary} FC. Базовая зарплата была ${baseSalary} FC, но из-за низких показателей дома эффективность работы составила ${workEfficiency.percent}%. Следующая зарплата будет доступна через ${SALARY_COOLDOWN_SECONDS} сек.`
+          : `Ты получил зарплату: ${finalSalary} FC. Следующая будет доступна через ${SALARY_COOLDOWN_SECONDS} сек.`,
     };
   };
 

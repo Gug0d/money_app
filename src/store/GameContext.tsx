@@ -104,29 +104,31 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     saveUserGameData,
   });
 
-  const challengesGame = useChallengesGame({
-    level,
-    finCoin,
+const challengesGame = useChallengesGame({
+  level,
+  finCoin,
+  homeComfort: householdGame.homeComfort,
+  homeDiscipline: householdGame.homeDiscipline,
 
-    activeJobId,
-    ownedPropertyId,
-    activeBoostIds,
-    boostOfferIds,
-    boostOffersRefreshAt,
-    nextSalaryAvailableAt,
+  activeJobId,
+  ownedPropertyId,
+  activeBoostIds,
+  boostOfferIds,
+  boostOffersRefreshAt,
+  nextSalaryAvailableAt,
 
-    setFinCoin,
-    setActiveJobId,
-    setOwnedPropertyId,
-    setActiveBoostIds,
-    setBoostOfferIds,
-    setBoostOffersRefreshAt,
-    setNextSalaryAvailableAt,
+  setFinCoin,
+  setActiveJobId,
+  setOwnedPropertyId,
+  setActiveBoostIds,
+  setBoostOfferIds,
+  setBoostOffersRefreshAt,
+  setNextSalaryAvailableAt,
 
-    isGuest,
-    userId: userIdRef.current,
-    saveUserGameData,
-  });
+  isGuest,
+  userId: userIdRef.current,
+  saveUserGameData,
+});
 
   const mortgageGame = useMortgageGame({
     level,
