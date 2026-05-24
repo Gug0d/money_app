@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { LoanProduct } from '../../constants/loanProducts';
+import { getLoanPaymentDurationSeconds } from '../gameConfig';
 import { ActiveLoan } from '../gameTypes';
 
 type Params = {
@@ -58,6 +59,7 @@ export function useLoanGame({
 
     const monthlyPayment = Math.ceil(totalRepayment / totalPayments);
     const nextFinCoin = finCoin + product.amount;
+    const paymentDurationSeconds = getLoanPaymentDurationSeconds(level);
 
     const nextLoan: ActiveLoan = {
       productId: product.id,
@@ -69,7 +71,7 @@ export function useLoanGame({
       monthlyPayment,
       paidPayments: 0,
       totalPayments,
-      nextPaymentAt: Date.now() + 60 * 1000,
+      nextPaymentAt: Date.now() + paymentDurationSeconds * 1000,
       overdueDays: 0,
       penaltyAmount: 0,
       status: 'active',
@@ -77,7 +79,7 @@ export function useLoanGame({
 
     setFinCoin(nextFinCoin);
     setActiveLoan(nextLoan);
-    setLoanRemainingSeconds(0);
+    setLoanRemainingSeconds(paymentDurationSeconds);
 
     if (!isGuest && userId) {
       try {
@@ -111,6 +113,8 @@ export function useLoanGame({
 
     if (finCoin < paymentAmount) return false;
 
+    const paymentDurationSeconds = getLoanPaymentDurationSeconds(level);
+
     const nextFinCoin = finCoin - paymentAmount;
     const nextDebt = Math.max(0, activeLoan.remainingDebt - paymentAmount);
     const nextPaidPayments = activeLoan.paidPayments + 1;
@@ -139,7 +143,7 @@ export function useLoanGame({
       ...activeLoan,
       remainingDebt: nextDebt,
       paidPayments: nextPaidPayments,
-      nextPaymentAt: Date.now() + 60 * 1000,
+      nextPaymentAt: Date.now() + paymentDurationSeconds * 1000,
       overdueDays: 0,
       penaltyAmount: activeLoan.penaltyAmount,
       status: 'active',
@@ -147,6 +151,7 @@ export function useLoanGame({
 
     setFinCoin(nextFinCoin);
     setActiveLoan(nextLoan);
+    setLoanRemainingSeconds(paymentDurationSeconds);
 
     if (!isGuest && userId) {
       try {
@@ -197,6 +202,7 @@ export function useLoanGame({
     };
 
     setActiveLoan(updatedLoan);
+    setLoanRemainingSeconds(0);
 
     if (!isGuest && userId) {
       saveUserGameData({
@@ -214,6 +220,7 @@ export function useLoanGame({
 
     if (now <= activeLoan.nextPaymentAt) return;
 
+    const paymentDurationSeconds = getLoanPaymentDurationSeconds(level);
     const penalty = Math.ceil(activeLoan.monthlyPayment * 0.001);
     const nextXp = Math.max(0, xp - 10);
 
@@ -223,11 +230,12 @@ export function useLoanGame({
       overdueDays: activeLoan.overdueDays + 1,
       penaltyAmount: activeLoan.penaltyAmount + penalty,
       remainingDebt: activeLoan.remainingDebt + penalty,
-      nextPaymentAt: now + 60 * 1000,
+      nextPaymentAt: now + paymentDurationSeconds * 1000,
     };
 
     setXp(nextXp);
     setActiveLoan(updatedLoan);
+    setLoanRemainingSeconds(paymentDurationSeconds);
 
     if (!isGuest && userId) {
       try {

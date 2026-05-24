@@ -1,5 +1,7 @@
 // constants/depositProducts.ts
 
+import { hours, minutes } from '../store/gameConfig';
+
 export type EarlyWithdrawPolicy = 'none' | 'no_profit' | 'half_profit';
 
 export type DepositProduct = {
@@ -19,7 +21,7 @@ export const depositProducts: DepositProduct[] = [
     requiredLevel: 3,
     minAmount: 100,
     interestPercent: 5,
-    durationSeconds: 300, // 5 минут
+    durationSeconds: minutes(30),// 5 минут
     earlyWithdraw: 'no_profit',
   },
   {
@@ -28,7 +30,7 @@ export const depositProducts: DepositProduct[] = [
     requiredLevel: 6,
     minAmount: 300,
     interestPercent: 8,
-    durationSeconds: 600, // 10 минут
+    durationSeconds: hours(1),// 10 минут
     earlyWithdraw: 'half_profit',
   },
   {
@@ -37,7 +39,7 @@ export const depositProducts: DepositProduct[] = [
     requiredLevel: 10,
     minAmount: 700,
     interestPercent: 12,
-    durationSeconds: 1200, // 20 минут
+    durationSeconds: hours(3),// 20 минут
     earlyWithdraw: 'none',
   },
 ];

@@ -15,10 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 
 import colors from '../../constants/colors';
 import { useGame } from '../../store/GameContext';
+import { getMissionXpReward } from '../../store/gameConfig';
 import { Mission, MissionOption } from '../../types/Mission';
 
 export type MissionsStackParamList = {
-  MissionsList: undefined;
+  MissionsList:
+    | {
+        completedMissionId?: string;
+      }
+    | undefined;
+
   MissionDetails: {
     mission: Mission;
   };
@@ -51,7 +57,7 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
     setIsCompleted(true);
 
     if (option.isCorrect && !rewardGiven) {
-      const xpReward = option.xp ?? mission.xpReward;
+      const xpReward = getMissionXpReward(mission.difficulty, game.level);
       const finCoinReward = option.finCoin ?? mission.finCoinReward;
 
       await game.addRewards(xpReward, finCoinReward);
@@ -74,8 +80,18 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
   };
 
   const handleFinish = () => {
+    if (isCompleted) {
+      navigation.navigate('MissionsList', {
+        completedMissionId: mission.id,
+      });
+
+      return;
+    }
+
     navigation.goBack();
   };
+
+  const xpReward = getMissionXpReward(mission.difficulty, game.level);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -86,7 +102,7 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
         <TouchableOpacity
           style={styles.backButton}
           activeOpacity={0.85}
-          onPress={() => navigation.goBack()}
+          onPress={handleFinish}
         >
           <Ionicons name="arrow-back" size={22} color={colors.primary} />
           <Text style={styles.backButtonText}>Назад</Text>
@@ -109,7 +125,7 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
           <View style={styles.rewardRow}>
             <View style={styles.rewardChip}>
               <Ionicons name="star-outline" size={16} color="#D9A520" />
-              <Text style={styles.rewardText}>+{mission.xpReward} XP</Text>
+              <Text style={styles.rewardText}>+{xpReward} XP</Text>
             </View>
 
             <View style={styles.rewardChip}>
@@ -141,7 +157,10 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
                   styles.optionCard,
                   isSelected && styles.optionCardSelected,
                   showResult && isCorrect && styles.optionCardCorrect,
-                  showResult && isSelected && !isCorrect && styles.optionCardWrong,
+                  showResult &&
+                    isSelected &&
+                    !isCorrect &&
+                    styles.optionCardWrong,
                 ]}
                 activeOpacity={0.86}
                 onPress={() => handleSelectOption(option)}
@@ -180,9 +199,13 @@ export default function MissionDetailsScreen({ route, navigation }: Props) {
           <View style={styles.resultCard}>
             <View style={styles.resultTopRow}>
               <Ionicons
-                name={selectedOption?.isCorrect ? 'checkmark-circle' : 'close-circle'}
+                name={
+                  selectedOption?.isCorrect ? 'checkmark-circle' : 'close-circle'
+                }
                 size={24}
-                color={selectedOption?.isCorrect ? colors.success : colors.danger}
+                color={
+                  selectedOption?.isCorrect ? colors.success : colors.danger
+                }
               />
 
               <Text style={styles.resultTitle}>

@@ -1,6 +1,8 @@
 import React from 'react';
 import { MortgageState } from '../gameTypes';
 
+import { scaleDurationSeconds } from '../gameConfig';
+
 type UseMortgageGameParams = {
   level: number;
   finCoin: number;
@@ -50,8 +52,10 @@ export function useMortgageGame({
     if (level < MORTGAGE_UNLOCK_LEVEL) return false;
     if (mortgage.isActive) return false;
 
-    const totalSeconds =
+    const baseTotalSeconds =
       options?.totalSeconds ?? DEFAULT_MORTGAGE.totalSeconds;
+
+    const totalSeconds = scaleDurationSeconds(baseTotalSeconds, level);
 
     const downPayment = options?.downPayment ?? 0;
 

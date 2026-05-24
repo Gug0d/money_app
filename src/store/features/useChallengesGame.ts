@@ -5,7 +5,12 @@ import {
   properties,
   riskDeals,
 } from '../../constants/challenges';
-import { scaleFinCoinPrice } from '../gameConfig';
+
+import {
+  getBoostRefreshSeconds,
+  getSalaryCooldownSeconds,
+  scaleFinCoinPrice,
+} from '../gameConfig';
 
 const SALARY_COOLDOWN_SECONDS = 60;
 const BOOST_OFFERS_COUNT = 2;
@@ -233,7 +238,9 @@ export function useChallengesGame({
       ? activeBoostIds.filter((id) => id !== 'salary_boost')
       : activeBoostIds;
 
-    const nextAvailableAt = now + SALARY_COOLDOWN_SECONDS * 1000;
+    const salaryCooldownSeconds = getSalaryCooldownSeconds(level);  
+
+    const nextAvailableAt = now + salaryCooldownSeconds * 1000;
 
     setFinCoin(nextFinCoin);
     setActiveBoostIds(nextBoostIds);
@@ -251,8 +258,8 @@ export function useChallengesGame({
       success: true,
       message:
         workEfficiency.multiplier < 1
-          ? `Ты получил зарплату: ${finalSalary} FC. Базовая зарплата была ${baseSalary} FC, но из-за низких показателей дома эффективность работы составила ${workEfficiency.percent}%. Следующая зарплата будет доступна через ${SALARY_COOLDOWN_SECONDS} сек.`
-          : `Ты получил зарплату: ${finalSalary} FC. Следующая будет доступна через ${SALARY_COOLDOWN_SECONDS} сек.`,
+          ? `Ты получил зарплату: ${finalSalary} FC. Базовая зарплата была ${baseSalary} FC, но из-за низких показателей дома эффективность работы составила ${workEfficiency.percent}%. Следующая зарплата будет доступна через ${Math.ceil(salaryCooldownSeconds / 60)} мин.`
+          : `Ты получил зарплату: ${finalSalary} FC. Следующая будет доступна через ${Math.ceil(salaryCooldownSeconds / 60)} мин.`,
     };
   };
 
@@ -350,9 +357,10 @@ export function useChallengesGame({
     const nextFinCoin = finCoin - price;
     const nextBoostIds = [...activeBoostIds, boost.id];
     const nextOfferIds = boostOfferIds.filter((id) => id !== boost.id);
+    const boostRefreshSeconds = getBoostRefreshSeconds(level);
     const nextRefreshAt =
       nextOfferIds.length === 0
-        ? Date.now() + BOOST_REFRESH_SECONDS * 1000
+        ? Date.now() + boostRefreshSeconds * 1000
         : boostOffersRefreshAt;
 
     setFinCoin(nextFinCoin);
@@ -376,6 +384,7 @@ export function useChallengesGame({
   };
 
   const skipBoostOffer = async (boostId: string) => {
+    const boostRefreshSeconds = getBoostRefreshSeconds(level);
     if (!boostOfferIds.includes(boostId)) {
       return {
         success: false,
@@ -386,7 +395,7 @@ export function useChallengesGame({
     const nextOfferIds = boostOfferIds.filter((id) => id !== boostId);
     const nextRefreshAt =
       nextOfferIds.length === 0
-        ? Date.now() + BOOST_REFRESH_SECONDS * 1000
+        ? Date.now() + boostRefreshSeconds * 1000
         : boostOffersRefreshAt;
 
     setBoostOfferIds(nextOfferIds);

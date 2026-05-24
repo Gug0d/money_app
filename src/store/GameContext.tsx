@@ -30,13 +30,16 @@ import {
   DEFAULT_MORTGAGE,
   MORTGAGE_UNLOCK_LEVEL,
   createDefaultHomeBills,
-  getLevelDataByXp,
+  convertTotalXpToLevelProgress,
+  getHomeBillsRefreshDuration,
+  getLevelData,
   getRandomEventDelay,
 } from './gameConfig';
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
+  const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
   const [finCoin, setFinCoin] = useState(0);
   const [mortgage, setMortgage] = useState<MortgageState>(DEFAULT_MORTGAGE);
@@ -78,16 +81,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     await updateDoc(doc(db, 'users', userIdRef.current), data);
   };
 
-  const levelData = useMemo(() => getLevelDataByXp(xp), [xp]);
-  const level = levelData.level;
+  const levelData = useMemo(() => getLevelData(level), [level]);
 
-  const getLevelByXp = (xpAmount: number) => {
-    return getLevelDataByXp(xpAmount).level;
+  const getLevelByXp = () => {
+    return level;
   };
 
   const householdGame = useHouseholdGame({
     level,
     finCoin,
+    ownedPropertyId,
     setFinCoin,
     isGuest,
     userId: userIdRef.current,
@@ -95,8 +98,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   });
 
   const rewardsGame = useRewardsGame({
+    level,
     xp,
     finCoin,
+    setLevel,
     setXp,
     setFinCoin,
     isGuest,
@@ -191,11 +196,9 @@ const challengesGame = useChallengesGame({
   });
 
   const progressToNextLevel = useMemo(() => {
-    const range = levelData.maxXp - levelData.minXp;
+    if (levelData.xpToNextLevel <= 0) return 1;
 
-    if (range <= 0) return 1;
-
-    return Math.max(0, Math.min(1, (xp - levelData.minXp) / range));
+    return Math.max(0, Math.min(1, xp / levelData.xpToNextLevel));
   }, [xp, levelData]);
 
   const mortgageStatus = useMemo(() => {
@@ -207,6 +210,7 @@ const challengesGame = useChallengesGame({
   }, [level, mortgage]);
 
   const resetLocalState = () => {
+    setLevel(1);
     setXp(0);
     setFinCoin(0);
     setMortgage(DEFAULT_MORTGAGE);
@@ -271,6 +275,7 @@ const challengesGame = useChallengesGame({
           {
             name: currentName || '',
             email: currentEmail || '',
+            level: 1,
             xp: 0,
             finCoin: 0,
             viewedTutorialIds: [],
@@ -283,8 +288,8 @@ const challengesGame = useChallengesGame({
             homeComfort: 70,
             homeDiscipline: 80,
             homeEvent: null,
-            homeEventAvailableAt: Date.now() + getRandomEventDelay(),
-            homeBillsRefreshAt: Date.now() + 10 * 60 * 60 * 1000,
+            homeEventAvailableAt: Date.now() + getRandomEventDelay(1),
+            homeBillsRefreshAt: Date.now() + getHomeBillsRefreshDuration(1),
 
             activeJobId: null,
             ownedPropertyId: null,
@@ -311,6 +316,8 @@ const challengesGame = useChallengesGame({
 
       const data = snap.data();
 
+
+      setLevel(typeof data.level === 'number' ? data.level : 1);
       setXp(typeof data.xp === 'number' ? data.xp : 0);
       setFinCoin(typeof data.finCoin === 'number' ? data.finCoin : 0);
       setMortgage(data.mortgage || DEFAULT_MORTGAGE);
@@ -446,8 +453,8 @@ const challengesGame = useChallengesGame({
     xp,
     finCoin,
     level,
-    currentLevelXp: levelData.minXp,
-    nextLevelXp: levelData.maxXp,
+    currentLevelXp: xp,
+    nextLevelXp: levelData.xpToNextLevel,
     progressToNextLevel,
 
     mortgage,

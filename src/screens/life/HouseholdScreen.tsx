@@ -13,6 +13,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { LifeStackParamList } from '../../navigation/AppNavigator';
 import { useGame } from '../../store/GameContext';
+import { properties } from '../../constants/challenges';
 import TutorialTarget, {
   addTutorialTargetFocusListener,
 } from '../../components/tutorial/TutorialTarget';
@@ -33,6 +34,7 @@ function formatLongTime(seconds: number) {
 export default function HouseholdScreen({ navigation }: Props) {
   const {
     finCoin,
+    ownedPropertyId,
     homeBills,
     homeComfort,
     homeDiscipline,
@@ -98,6 +100,12 @@ export default function HouseholdScreen({ navigation }: Props) {
   const progress =
     homeBills.length > 0 ? Math.round((paidBills / homeBills.length) * 100) : 0;
 
+  const ownedProperty = properties.find(
+    (property) => property.id === ownedPropertyId
+  );
+
+  const propertyTitle = ownedProperty?.title ?? 'Базовое жильё';
+
   const handlePayBill = async (billId: number) => {
     const success = await payHomeBill(billId);
 
@@ -155,6 +163,12 @@ export default function HouseholdScreen({ navigation }: Props) {
           <View style={styles.homeCard}>
             <Text style={styles.homeEmoji}>🏠</Text>
             <Text style={styles.title}>Дом и быт</Text>
+
+            <View style={styles.propertyBadge}>
+              <Text style={styles.propertyBadgeLabel}>Текущее жильё</Text>
+              <Text style={styles.propertyBadgeValue}>{propertyTitle}</Text>
+            </View>
+
             <Text style={styles.subtitle}>
               Оплачивай счета вовремя, избегай штрафов и поддерживай комфорт.
             </Text>
@@ -407,6 +421,28 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#0A4F4A',
     marginBottom: 8,
+  },
+  propertyBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF7DE',
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E3C46A',
+  },
+  propertyBadgeLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#8A5A00',
+    marginBottom: 3,
+  },
+  propertyBadgeValue: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#0A4F4A',
   },
   subtitle: {
     fontSize: 16,

@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   SafeAreaView,
   StyleSheet,
@@ -19,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import TutorialTarget from '../../components/tutorial/TutorialTarget';
 import { useGame } from '../../store/GameContext';
+import { getMissionXpReward } from '../../store/gameConfig';
 import { generateAiMissions } from '../../services/ai';
 import { Mission } from '../../types/Mission';
 import { RootTabParamList } from '../../navigation/AppNavigator';
@@ -28,6 +28,10 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<MissionsStackParamList, 'MissionsList'>,
   BottomTabScreenProps<RootTabParamList>
 >;
+
+let cachedMissions: Mission[] = [];
+let cachedIsAiFallback = false;
+let cachedMissionsInitialized = false;
 
 const fallbackMissions: Mission[] = [
   {
@@ -58,8 +62,7 @@ const fallbackMissions: Mission[] = [
         id: 'c',
         text: 'Потратить все FinCoin',
         isCorrect: false,
-        explanation:
-          'Если потратить всё, у игрока не останется резерва.',
+        explanation: 'Если потратить всё, у игрока не останется резерва.',
       },
     ],
   },
@@ -84,15 +87,13 @@ const fallbackMissions: Mission[] = [
         id: 'b',
         text: 'Чтобы быстрее потратить деньги',
         isCorrect: false,
-        explanation:
-          'Цель не в быстрой трате, а в контроле обязательств.',
+        explanation: 'Цель не в быстрой трате, а в контроле обязательств.',
       },
       {
         id: 'c',
         text: 'Потому что счета никак не влияют на игру',
         isCorrect: false,
-        explanation:
-          'В игре счета могут влиять на баланс и состояние дома.',
+        explanation: 'В игре счета могут влиять на баланс и состояние дома.',
       },
     ],
   },
@@ -185,8 +186,7 @@ const fallbackMissions: Mission[] = [
         id: 'b',
         text: 'Купить буст, не проверяя счета и кредит',
         isCorrect: false,
-        explanation:
-          'Буст может быть полезен, но обязательства обычно важнее.',
+        explanation: 'Буст может быть полезен, но обязательства обычно важнее.',
       },
       {
         id: 'c',
@@ -225,12 +225,12 @@ function getDifficultyIcon(difficulty: Mission['difficulty']) {
   }
 }
 
-export default function MissionsScreen({ navigation }: Props) {
+export default function MissionsScreen({ navigation, route }: Props) {
   const game = useGame();
 
-  const [missions, setMissions] = useState<Mission[]>(fallbackMissions);
+  const [missions, setMissions] = useState<Mission[]>(cachedMissions);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAiFallback, setIsAiFallback] = useState(false);
+  const [isAiFallback, setIsAiFallback] = useState(cachedIsAiFallback);
 
   const gameState = useMemo(
     () => ({
@@ -292,15 +292,30 @@ export default function MissionsScreen({ navigation }: Props) {
       });
 
       if (!generatedMissions || generatedMissions.length === 0) {
-        setMissions(fallbackMissions);
+        cachedMissions = fallbackMissions;
+        cachedIsAiFallback = true;
+        cachedMissionsInitialized = true;
+
+        setMissions(cachedMissions);
         setIsAiFallback(true);
+
         return;
       }
 
-      setMissions(generatedMissions);
+      cachedMissions = generatedMissions;
+      cachedIsAiFallback = false;
+      cachedMissionsInitialized = true;
+
+      setMissions(cachedMissions);
+      setIsAiFallback(false);
     } catch (error) {
       console.log('[MissionsScreen] generate missions error:', error);
-      setMissions(fallbackMissions);
+
+      cachedMissions = fallbackMissions;
+      cachedIsAiFallback = true;
+      cachedMissionsInitialized = true;
+
+      setMissions(cachedMissions);
       setIsAiFallback(true);
     } finally {
       setIsLoading(false);
@@ -308,10 +323,36 @@ export default function MissionsScreen({ navigation }: Props) {
   };
 
   useEffect(() => {
-    loadAiMissions();
-  }, [game.level]);
+    if (cachedMissionsInitialized) {
+      return;
+    }
 
-  const handleRefreshMissions = async () => {
+    loadAiMissions();
+  }, []);
+
+  useEffect(() => {
+    const completedMissionId = route.params?.completedMissionId;
+
+    if (!completedMissionId) {
+      return;
+    }
+
+    cachedMissions = cachedMissions.filter(
+      (mission) => mission.id !== completedMissionId
+    );
+
+    setMissions(cachedMissions);
+
+    navigation.setParams({
+      completedMissionId: undefined,
+    });
+  }, [route.params?.completedMissionId, navigation]);
+
+  const handleGenerateNewMissions = async () => {
+    if (missions.length > 0) {
+      return;
+    }
+
     await loadAiMissions();
   };
 
@@ -322,6 +363,8 @@ export default function MissionsScreen({ navigation }: Props) {
   };
 
   const renderMission = ({ item }: { item: Mission }) => {
+    const xpReward = getMissionXpReward(item.difficulty, game.level);
+
     return (
       <TouchableOpacity
         style={styles.missionCard}
@@ -329,7 +372,12 @@ export default function MissionsScreen({ navigation }: Props) {
         onPress={() => handleOpenMission(item)}
       >
         <View style={styles.missionHeader}>
-          <View style={[styles.difficultyBadge, getDifficultyStyle(item.difficulty)]}>
+          <View
+            style={[
+              styles.difficultyBadge,
+              getDifficultyStyle(item.difficulty),
+            ]}
+          >
             <Ionicons
               name={getDifficultyIcon(item.difficulty)}
               size={15}
@@ -341,7 +389,7 @@ export default function MissionsScreen({ navigation }: Props) {
           <View style={styles.rewardRow}>
             <View style={styles.rewardChip}>
               <Ionicons name="star-outline" size={15} color="#D9A520" />
-              <Text style={styles.rewardText}>{item.xpReward} XP</Text>
+              <Text style={styles.rewardText}>{xpReward} XP</Text>
             </View>
 
             <View style={styles.rewardChip}>
@@ -366,6 +414,40 @@ export default function MissionsScreen({ navigation }: Props) {
           </View>
         </View>
       </TouchableOpacity>
+    );
+  };
+
+  const renderEmptyMissions = () => {
+    if (isLoading) {
+      return null;
+    }
+
+    return (
+      <View style={styles.emptyBox}>
+        <Ionicons
+          name="checkmark-done-circle"
+          size={56}
+          color={colors.primary}
+        />
+
+        <Text style={styles.emptyTitle}>Все миссии выполнены</Text>
+
+        <Text style={styles.emptyText}>
+          Ты прошёл весь текущий список миссий. Сгенерируй новые задания, чтобы
+          продолжить получать опыт и FinCoin.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.emptyButton}
+          activeOpacity={0.9}
+          onPress={handleGenerateNewMissions}
+          disabled={isLoading}
+        >
+          <Text style={styles.emptyButtonText}>
+            Сгенерировать новые миссии
+          </Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -396,7 +478,11 @@ export default function MissionsScreen({ navigation }: Props) {
         <TutorialTarget id="missions-list">
           <View style={styles.heroCard}>
             <View style={styles.heroIcon}>
-              <Ionicons name="checkmark-circle" size={34} color={colors.primary} />
+              <Ionicons
+                name="checkmark-circle"
+                size={34}
+                color={colors.primary}
+              />
             </View>
 
             <View style={styles.heroTextBlock}>
@@ -435,21 +521,28 @@ export default function MissionsScreen({ navigation }: Props) {
               </Text>
             ) : (
               <Text style={styles.sectionSubtitle}>
-                Миссии подобраны под текущий уровень
+                Миссии сгенерированы AI под текущую ситуацию
               </Text>
             )}
           </View>
 
           <TouchableOpacity
-            style={styles.refreshButton}
+            style={[
+              styles.refreshButton,
+              missions.length > 0 && styles.refreshButtonDisabled,
+            ]}
             activeOpacity={0.85}
-            onPress={handleRefreshMissions}
-            disabled={isLoading}
+            onPress={handleGenerateNewMissions}
+            disabled={isLoading || missions.length > 0}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color={colors.primaryDark} />
             ) : (
-              <Ionicons name="refresh" size={20} color={colors.primaryDark} />
+              <Ionicons
+                name="refresh"
+                size={20}
+                color={missions.length > 0 ? '#B8B0A0' : colors.primaryDark}
+              />
             )}
           </TouchableOpacity>
         </View>
@@ -457,7 +550,7 @@ export default function MissionsScreen({ navigation }: Props) {
         {isLoading && missions.length === 0 ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Загружаем миссии...</Text>
+            <Text style={styles.loadingText}>Генерируем миссии...</Text>
           </View>
         ) : (
           <FlatList
@@ -466,6 +559,7 @@ export default function MissionsScreen({ navigation }: Props) {
             renderItem={renderMission}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
+            ListEmptyComponent={renderEmptyMissions}
           />
         )}
       </View>
@@ -606,6 +700,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  refreshButtonDisabled: {
+    backgroundColor: '#EEE5D2',
+    borderColor: '#D8CDB8',
+  },
   listContent: {
     paddingBottom: 24,
   },
@@ -713,5 +811,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#72817D',
+  },
+  emptyBox: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#EFE7D6',
+    marginTop: 20,
+  },
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.primaryDark,
+    textAlign: 'center',
+  },
+  emptyText: {
+    marginTop: 8,
+    fontSize: 15,
+    lineHeight: 21,
+    color: '#5E6E69',
+    textAlign: 'center',
+  },
+  emptyButton: {
+    marginTop: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+  },
+  emptyButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
   },
 });

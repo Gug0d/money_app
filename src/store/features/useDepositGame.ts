@@ -3,6 +3,8 @@ import React from 'react';
 import { DepositProduct } from '../../constants/depositProducts';
 import { ActiveDeposit } from '../gameTypes';
 
+import { scaleDurationSeconds } from '../gameConfig';
+
 type Params = {
   level: number;
   finCoin: number;
@@ -66,6 +68,8 @@ export function useDepositGame({
       depositAmount + depositAmount * (product.interestPercent / 100)
     );
 
+    const durationSeconds = scaleDurationSeconds(product.durationSeconds, level);
+
     const nextFinCoin = finCoin - depositAmount;
 
     const nextDeposit: ActiveDeposit = {
@@ -74,7 +78,7 @@ export function useDepositGame({
       amount: depositAmount,
       interestPercent: product.interestPercent,
       payoutAmount,
-      durationSeconds: product.durationSeconds,
+      durationSeconds,
       startedAt: Date.now(),
       isCompleted: false,
     };
@@ -83,7 +87,7 @@ export function useDepositGame({
 
     setFinCoin(nextFinCoin);
     setActiveDeposit(nextDeposit);
-    setDepositRemainingSeconds(product.durationSeconds);
+    setDepositRemainingSeconds(durationSeconds);
 
     if (!isGuest && userId) {
       try {
