@@ -1,3 +1,5 @@
+// src/screens/home/HomeScreen.tsx
+
 import React from 'react';
 import {
   SafeAreaView,
@@ -7,12 +9,23 @@ import {
   View,
 } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+
 import { RootTabParamList } from '../../navigation/AppNavigator';
 import TutorialTarget from '../../components/tutorial/TutorialTarget';
 
-type Props = BottomTabScreenProps<RootTabParamList, 'Home'>;
+type Props = BottomTabScreenProps<RootTabParamList, 'Home'> & {
+  onPlayPress?: () => void;
+};
 
-export default function HomeScreen({ navigation }: Props) {
+export default function HomeScreen({ navigation, onPlayPress }: Props) {
+  const handlePlayPress = () => {
+    navigation.navigate('Life', {
+      screen: 'LifeMain',
+    });
+
+    onPlayPress?.();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
@@ -46,11 +59,7 @@ export default function HomeScreen({ navigation }: Props) {
         <TutorialTarget id="home-play-button" style={styles.buttonTarget}>
           <TouchableOpacity
             style={styles.button}
-            onPress={() =>
-              navigation.navigate('Life', {
-                screen: 'LifeMain',
-              })
-            }
+            onPress={handlePlayPress}
             activeOpacity={0.85}
           >
             <Text style={styles.buttonText}>Играть</Text>

@@ -56,30 +56,11 @@ export const TUTORIAL_FLOWS: TutorialFlow[] = [
       {
         id: 'welcome',
         title: 'Добро пожаловать в Finity!',
-        subtitle: 'Это игра про финансовую жизнь',
+        subtitle: 'Начинаем обучение',
         description:
-          'Здесь ты развиваешь персонажа, выполняешь миссии, получаешь опыт, зарабатываешь FinCoin и постепенно открываешь новые финансовые механики.',
+          'Ты нажал «Играть» и попал в режим жизни. Сейчас я покажу основные разделы: Дом, Челленджи, Миссии, Советы и Банк.',
         actionText: 'Дальше',
         actionTarget: 'none',
-      },
-      {
-        id: 'home-play',
-        title: 'Начало игры',
-        subtitle: 'Одна главная кнопка',
-        description:
-          'На стартовом экране есть кнопка «Играть». Она сразу переносит игрока в режим жизни, где находятся основные игровые разделы.',
-        actionText: 'Дальше',
-        actionTarget: 'home',
-        targetKey: 'home-play-button',
-        targetPadding: 10,
-        highlight: {
-          top: 0,
-          left: 0,
-          width: 0,
-          height: 0,
-          borderRadius: 28,
-          cardPosition: 'top',
-        },
       },
       {
         id: 'life-main',

@@ -3,6 +3,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -20,6 +21,7 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import TutorialTarget from '../../components/tutorial/TutorialTarget';
 import { useGame } from '../../store/GameContext';
+import { getAdvisorQuestionCost } from '../../store/gameConfig';
 import { askAiAdvisor } from '../../services/ai';
 import { AiChatMessage, AiGameState } from '../../types/ai';
 import { RootTabParamList } from '../../navigation/AppNavigator';
@@ -28,6 +30,13 @@ type Props = BottomTabScreenProps<RootTabParamList, 'Advisor'>;
 
 export default function AdvisorScreen({ navigation }: Props) {
   const game = useGame();
+
+  const advisorQuestionCost = useMemo(
+    () => getAdvisorQuestionCost(game.level),
+    [game.level]
+  );
+
+  const [isChatUnlocked, setIsChatUnlocked] = useState(false);
 
   const [messages, setMessages] = useState<AiChatMessage[]>([
     {
@@ -91,10 +100,55 @@ export default function AdvisorScreen({ navigation }: Props) {
     ]
   );
 
+  const handleUnlockChat = () => {
+    if (game.finCoin < advisorQuestionCost) {
+      Alert.alert(
+        'Недостаточно FinCoin',
+        `Доступ к советнику стоит ${advisorQuestionCost} FC. Сейчас у тебя ${game.finCoin} FC.`
+      );
+
+      return;
+    }
+
+    Alert.alert(
+      'Открыть чат с советником?',
+      `Стоимость обращения к ИИ-агенту: ${advisorQuestionCost} FC.\n\nПосле оплаты ты сможешь задать вопрос советнику.`,
+      [
+        {
+          text: 'Отмена',
+          style: 'cancel',
+        },
+        {
+          text: 'Открыть',
+          onPress: async () => {
+            const paymentSuccess = await game.spendFinCoin(
+              advisorQuestionCost
+            );
+
+            if (!paymentSuccess) {
+              Alert.alert(
+                'Ошибка оплаты',
+                'Не удалось списать FinCoin. Попробуй ещё раз.'
+              );
+
+              return;
+            }
+
+            setIsChatUnlocked(true);
+
+            setTimeout(() => {
+              listRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          },
+        },
+      ]
+    );
+  };
+
   const sendQuestion = async () => {
     const trimmedQuestion = question.trim();
 
-    if (!trimmedQuestion || isLoading) {
+    if (!trimmedQuestion || isLoading || !isChatUnlocked) {
       return;
     }
 
@@ -156,11 +210,63 @@ export default function AdvisorScreen({ navigation }: Props) {
     );
   };
 
+  const renderLockedContent = () => {
+    return (
+      <View style={styles.lockedContainer}>
+        <View style={styles.lockedCard}>
+          <View style={styles.lockIconWrap}>
+            <FontAwesome5 name="robot" size={34} color={colors.primary} />
+          </View>
+
+          <Text style={styles.lockedTitle}>ИИ-советник доступен за FC</Text>
+
+          <Text style={styles.lockedText}>
+            Советник анализирует твою игровую ситуацию и отвечает на вопросы о
+            балансе, кредитах, вкладах, ипотеке, счетах дома и миссиях.
+          </Text>
+
+          <View style={styles.priceBox}>
+            <Text style={styles.priceLabel}>Стоимость обращения</Text>
+            <Text style={styles.priceValue}>{advisorQuestionCost} FC</Text>
+          </View>
+
+          <View style={styles.balanceBox}>
+            <Ionicons name="wallet-outline" size={18} color="#D9A520" />
+            <Text style={styles.balanceText}>У тебя: {game.finCoin} FC</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.unlockButton,
+              game.finCoin < advisorQuestionCost && styles.unlockButtonDisabled,
+            ]}
+            activeOpacity={0.9}
+            onPress={handleUnlockChat}
+            disabled={game.finCoin < advisorQuestionCost}
+          >
+            <Text style={styles.unlockButtonText}>Открыть чат</Text>
+          </TouchableOpacity>
+
+          {game.finCoin < advisorQuestionCost ? (
+            <Text style={styles.notEnoughText}>
+              Недостаточно FinCoin для обращения к советнику.
+            </Text>
+          ) : (
+            <Text style={styles.unlockHint}>
+              После подтверждения стоимость будет списана с баланса.
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
       >
         <View style={styles.content}>
           <View style={styles.header}>
@@ -214,6 +320,13 @@ export default function AdvisorScreen({ navigation }: Props) {
                 </View>
 
                 <View style={styles.heroStatChip}>
+                  <Ionicons name="cash-outline" size={16} color={colors.primary} />
+                  <Text style={styles.heroStatText}>
+                    Вопрос: {advisorQuestionCost} FC
+                  </Text>
+                </View>
+
+                <View style={styles.heroStatChip}>
                   <Ionicons
                     name="star-outline"
                     size={16}
@@ -225,47 +338,55 @@ export default function AdvisorScreen({ navigation }: Props) {
             </View>
           </TutorialTarget>
 
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            contentContainerStyle={styles.messagesContainer}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => {
-              listRef.current?.scrollToEnd({ animated: true });
-            }}
-          />
+          {isChatUnlocked ? (
+            <>
+              <FlatList
+                ref={listRef}
+                data={messages}
+                keyExtractor={(item) => item.id}
+                renderItem={renderMessage}
+                contentContainerStyle={styles.messagesContainer}
+                showsVerticalScrollIndicator={false}
+                onContentSizeChange={() => {
+                  listRef.current?.scrollToEnd({ animated: true });
+                }}
+              />
 
-          {isLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={styles.loadingText}>Помощник думает...</Text>
-            </View>
-          ) : null}
+              {isLoading ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color={colors.primary} />
+                  <Text style={styles.loadingText}>Помощник думает...</Text>
+                </View>
+              ) : null}
+            </>
+          ) : (
+            renderLockedContent()
+          )}
         </View>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            value={question}
-            onChangeText={setQuestion}
-            placeholder="Например: почему уменьшился баланс?"
-            placeholderTextColor="#8A9A95"
-            style={styles.input}
-            multiline
-          />
+        {isChatUnlocked ? (
+          <View style={styles.inputContainer}>
+            <TextInput
+              value={question}
+              onChangeText={setQuestion}
+              placeholder="Например: почему уменьшился баланс?"
+              placeholderTextColor="#8A9A95"
+              style={styles.input}
+              multiline
+            />
 
-          <Pressable
-            style={[
-              styles.sendButton,
-              (!question.trim() || isLoading) && styles.sendButtonDisabled,
-            ]}
-            onPress={sendQuestion}
-            disabled={!question.trim() || isLoading}
-          >
-            <Ionicons name="send" size={20} color="#FFFFFF" />
-          </Pressable>
-        </View>
+            <Pressable
+              style={[
+                styles.sendButton,
+                (!question.trim() || isLoading) && styles.sendButtonDisabled,
+              ]}
+              onPress={sendQuestion}
+              disabled={!question.trim() || isLoading}
+            >
+              <Ionicons name="send" size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -283,6 +404,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
+    minHeight: 0,
   },
   header: {
     flexDirection: 'row',
@@ -384,7 +506,8 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     paddingTop: 8,
-    paddingBottom: 18,
+    paddingBottom: 24,
+    flexGrow: 1,
   },
   messageBubble: {
     maxWidth: '86%',
@@ -425,29 +548,138 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6A7975',
   },
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: 30,
+  },
+  lockedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#EFE7D6',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    elevation: 3,
+  },
+  lockIconWrap: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: '#EAF6F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  lockedTitle: {
+    fontSize: 23,
+    fontWeight: '900',
+    color: colors.primaryDark,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lockedText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#5E6E69',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  priceBox: {
+    width: '100%',
+    backgroundColor: '#FFF8E5',
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  priceLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#7B6A2D',
+    marginBottom: 4,
+  },
+  priceValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.primaryDark,
+  },
+  balanceBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F1E4',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 16,
+  },
+  balanceText: {
+    marginLeft: 6,
+    fontSize: 15,
+    fontWeight: '900',
+    color: colors.textDark,
+  },
+  unlockButton: {
+    width: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  unlockButtonDisabled: {
+    opacity: 0.45,
+  },
+  unlockButtonText: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  unlockHint: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#6A7975',
+    textAlign: 'center',
+  },
+  notEnoughText: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.danger,
+    textAlign: 'center',
+    fontWeight: '800',
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 10,
     paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: 12,
+    paddingBottom: Platform.OS === 'ios' ? 18 : 10,
     backgroundColor: '#F4EEDB',
     borderTopWidth: 1,
     borderTopColor: '#E6DFCF',
   },
   input: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 48,
     maxHeight: 110,
     paddingHorizontal: 15,
     paddingVertical: 11,
     borderRadius: 18,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E6DFCF',
-    fontSize: 15,
+    borderColor: colors.primary,
+    fontSize: 16,
     color: '#21312E',
+    textAlignVertical: 'top',
   },
   sendButton: {
     width: 46,

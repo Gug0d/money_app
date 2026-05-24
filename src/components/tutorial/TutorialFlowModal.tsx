@@ -1,3 +1,5 @@
+// src/components/tutorial/TutorialFlowModal.tsx
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -211,25 +213,37 @@ export default function TutorialFlowModal({
 
   const isBankLockedStep = currentStep.id === 'bank-locked';
 
-  const estimatedCardHeight = 310;
-  const safeBottom = 18;
+  const estimatedCardHeight = isBankLockedStep ? 430 : 300;
+  const safeTop = 42;
+  const safeBottom = isBankLockedStep ? 100 : 110;
 
-  const cardTop =
-    hasHighlight && cardPosition === 'bottom'
-      ? Math.min(
-          highlightTop + highlightHeight + 14,
-          screenHeight - estimatedCardHeight - safeBottom
-        )
-      : 70;
+  const spaceBelow = hasHighlight
+    ? screenHeight - (highlightTop + highlightHeight)
+    : 0;
+
+  const spaceAbove = hasHighlight ? highlightTop : 0;
+
+  const shouldPlaceCardTop =
+    hasHighlight &&
+    (cardPosition === 'top' ||
+      spaceBelow < estimatedCardHeight + safeBottom) &&
+    spaceAbove > estimatedCardHeight + 16;
+
+  const floatingCardTop = shouldPlaceCardTop
+    ? Math.max(safeTop, highlightTop - estimatedCardHeight - 12)
+    : Math.min(
+        highlightTop + highlightHeight + 12,
+        screenHeight - estimatedCardHeight - safeBottom
+      );
 
   const cardStyle = isBankLockedStep
-    ? [styles.infoCard, styles.infoCardTop]
+    ? [styles.infoCard, styles.infoCardBankLocked, styles.infoCardTop]
     : hasHighlight
     ? [
         styles.infoCard,
         styles.infoCardFloating,
         {
-          top: cardPosition === 'top' ? 70 : cardTop,
+          top: floatingCardTop,
         },
       ]
     : [styles.infoCard, styles.infoCardBottom];
@@ -260,8 +274,9 @@ export default function TutorialFlowModal({
 
   const nextButtonText = isLastStep
     ? 'Завершить обучение'
-    : nextStep?.actionText ??
-      getTargetButtonText(nextStep?.actionTarget) ??
+    : currentStep.actionText ||
+      nextStep?.actionText ||
+      getTargetButtonText(currentStep.actionTarget) ||
       'Дальше';
 
   return (
@@ -465,9 +480,10 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: '#FFFDF6',
     borderRadius: 26,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 16,
+    paddingHorizontal: 15,
+    paddingTop: 12,
+    paddingBottom: 14,
+    maxHeight: 330,
     borderWidth: 1,
     borderColor: '#E8DFC8',
     shadowColor: '#000',
@@ -476,11 +492,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 9,
   },
+  infoCardBankLocked: {
+    maxHeight: undefined,
+    paddingBottom: 18,
+  },
   infoCardBottom: {
     position: 'absolute',
     left: 14,
     right: 14,
-    bottom: 18,
+    bottom: 80,
   },
   infoCardFloating: {
     position: 'absolute',
@@ -529,7 +549,7 @@ const styles = StyleSheet.create({
     color: '#7B8B86',
   },
   title: {
-    marginTop: 14,
+    marginTop: 12,
     fontSize: 21,
     fontWeight: '900',
     color: colors.primaryDark,
@@ -566,7 +586,7 @@ const styles = StyleSheet.create({
     color: '#8A5A00',
   },
   footer: {
-    marginTop: 16,
+    marginTop: 6,
     flexDirection: 'row',
     gap: 10,
   },

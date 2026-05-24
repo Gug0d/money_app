@@ -1,3 +1,5 @@
+// src/navigation/AppNavigator.tsx
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   NavigationContainer,
@@ -78,6 +80,8 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 const BANK_UNLOCK_LEVEL = 2;
 const BANK_UNLOCK_NOTIFICATION_ID = 'bank-unlocked-notification-v5';
 
+const FIRST_START_TUTORIAL_ID = 'first-start';
+
 function LoadingScreen() {
   return (
     <SafeAreaView style={styles.loadingContainer}>
@@ -124,11 +128,13 @@ function MainTabs({
   const navigation = useNavigation<any>();
 
   const previousLevelRef = useRef<number | null>(null);
+  const previousViewedTutorialIdsRef = useRef<string[] | null>(null);
 
   const { level, isGameLoading, viewedTutorialIds, markTutorialViewed } =
     useGame();
 
   const [tutorialVisible, setTutorialVisible] = useState(false);
+  const [isTutorialTestMode, setIsTutorialTestMode] = useState(false);
 
   const activeTutorialFlow = useMemo(
     () => getNextTutorialFlowForLevel(level, viewedTutorialIds),
@@ -136,10 +142,53 @@ function MainTabs({
   );
 
   useEffect(() => {
-    if (!isGameLoading && activeTutorialFlow) {
-      setTutorialVisible(true);
+    if (isGameLoading || !activeTutorialFlow) {
+      return;
     }
-  }, [isGameLoading, activeTutorialFlow]);
+
+    if (
+      activeTutorialFlow.id === FIRST_START_TUTORIAL_ID &&
+      !isTutorialTestMode
+    ) {
+      return;
+    }
+
+    setTutorialVisible(true);
+  }, [isGameLoading, activeTutorialFlow, isTutorialTestMode]);
+
+  useEffect(() => {
+    if (isGameLoading) {
+      return;
+    }
+
+    const previousViewedTutorialIds = previousViewedTutorialIdsRef.current;
+    previousViewedTutorialIdsRef.current = viewedTutorialIds;
+
+    if (!previousViewedTutorialIds) {
+      return;
+    }
+
+    const tutorialWasReset =
+      previousViewedTutorialIds.length > 0 && viewedTutorialIds.length === 0;
+
+    if (!tutorialWasReset) {
+      return;
+    }
+
+    setTutorialVisible(false);
+    setIsTutorialTestMode(true);
+
+    navigation.navigate('Main', {
+      screen: 'Life',
+      params: {
+        screen: 'LifeMain',
+      },
+    });
+
+    setTimeout(() => {
+      setTutorialVisible(true);
+    }, 500);
+  }, [isGameLoading, viewedTutorialIds, navigation]);
 
   useEffect(() => {
     if (isGameLoading) return;
@@ -263,12 +312,34 @@ function MainTabs({
     }
   };
 
+  const handleStartGameTutorial = () => {
+    if (isGameLoading || !activeTutorialFlow) {
+      return;
+    }
+
+    if (activeTutorialFlow.id !== FIRST_START_TUTORIAL_ID) {
+      return;
+    }
+
+    if (viewedTutorialIds.includes(FIRST_START_TUTORIAL_ID)) {
+      return;
+    }
+
+    setTutorialVisible(false);
+    setIsTutorialTestMode(false);
+
+    setTimeout(() => {
+      setTutorialVisible(true);
+    }, 450);
+  };
+
   const handleFinishTutorial = async () => {
     if (activeTutorialFlow) {
       await markTutorialViewed(activeTutorialFlow.id);
     }
 
     setTutorialVisible(false);
+    setIsTutorialTestMode(false);
   };
 
   return (
@@ -340,11 +411,14 @@ function MainTabs({
           options={{ title: 'Цели' }}
         />
 
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{ title: 'Дом' }}
-        />
+        <Tab.Screen name="Home" options={{ title: 'Дом' }}>
+          {(props) => (
+            <HomeScreen
+              {...props}
+              onPlayPress={handleStartGameTutorial}
+            />
+          )}
+        </Tab.Screen>
 
         <Tab.Screen
           name="Advisor"

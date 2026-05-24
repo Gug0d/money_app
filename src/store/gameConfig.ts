@@ -30,6 +30,19 @@ export function scaleRubPrice(basePrice: number, level: number): number {
   ) * 1000;
 }
 
+export const ADVISOR_BASE_QUESTION_COST = 20;
+export const ADVISOR_COST_GROWTH_PER_LEVEL = 0.18;
+
+export function getAdvisorQuestionCost(level: number): number {
+  const safeLevel = Math.max(1, level);
+
+  const rawCost =
+    ADVISOR_BASE_QUESTION_COST *
+    (1 + (safeLevel - 1) * ADVISOR_COST_GROWTH_PER_LEVEL);
+
+  return Math.max(ADVISOR_BASE_QUESTION_COST, Math.round(rawCost / 5) * 5);
+}
+
 export function getLevelTimeMultiplier(level: number): number {
   const safeLevel = Math.max(1, level);
 
@@ -114,18 +127,18 @@ function scaleHomeEvent(event: HomeEvent, level: number): HomeEvent {
 }
 
 export const LEVELS = [
-  { level: 1, xpToNextLevel: 200 },
+  { level: 1, xpToNextLevel: 250 },
   { level: 2, xpToNextLevel: 400 },
-  { level: 3, xpToNextLevel: 750 },
-  { level: 4, xpToNextLevel: 1000 },
-  { level: 5, xpToNextLevel: 1450 },
-  { level: 6, xpToNextLevel: 1900 },
-  { level: 7, xpToNextLevel: 2300 },
-  { level: 8, xpToNextLevel: 2500 },
-  { level: 9, xpToNextLevel: 2800 },
-  { level: 10, xpToNextLevel: 3000 },
-  { level: 11, xpToNextLevel: 3250 },
-  { level: 12, xpToNextLevel: 4000 },
+  { level: 3, xpToNextLevel: 600 },
+  { level: 4, xpToNextLevel: 850 },
+  { level: 5, xpToNextLevel: 1150 },
+  { level: 6, xpToNextLevel: 1500 },
+  { level: 7, xpToNextLevel: 1900 },
+  { level: 8, xpToNextLevel: 2350 },
+  { level: 9, xpToNextLevel: 2850 },
+  { level: 10, xpToNextLevel: 3400 },
+  { level: 11, xpToNextLevel: 4000 },
+  { level: 12, xpToNextLevel: 4700 },
 ];
 
 export function getLevelData(level: number) {
@@ -171,12 +184,12 @@ export function convertTotalXpToLevelProgress(totalXp: number) {
 export type XpRewardDifficulty = 'Легко' | 'Средне' | 'Сложно';
 
 export const XP_REWARD_BY_DIFFICULTY: Record<XpRewardDifficulty, number> = {
-  Легко: 25,
-  Средне: 45,
-  Сложно: 70,
+  Легко: 80,
+  Средне: 140,
+  Сложно: 220,
 };
 
-export const XP_GROWTH_PER_LEVEL = 0.08;
+export const XP_GROWTH_PER_LEVEL = 0.12;
 export const MAX_XP_REWARD_MULTIPLIER = 2.5;
 
 export function getLevelXpMultiplier(level: number): number {
@@ -341,9 +354,7 @@ export const createDefaultHomeBills = (
     {
       id: 4,
       title: ownedPropertyId ? 'Содержание жилья' : 'Аренда',
-      amount: Math.round(
-        (ownedPropertyId ? 220 : 350) * propertyMultiplier
-      ),
+      amount: Math.round((ownedPropertyId ? 220 : 350) * propertyMultiplier),
       due: 'до 1 числа',
       status: 'pending',
       icon: '🏠',
