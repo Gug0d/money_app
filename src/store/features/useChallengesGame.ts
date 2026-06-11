@@ -12,9 +12,7 @@ import {
   scaleFinCoinPrice,
 } from '../gameConfig';
 
-const SALARY_COOLDOWN_SECONDS = 60;
 const BOOST_OFFERS_COUNT = 2;
-const BOOST_REFRESH_SECONDS = 120;
 
 export function getWorkEfficiency(params: {
   homeComfort: number;
@@ -73,6 +71,7 @@ type UseChallengesGameParams = {
   boostOfferIds: string[];
   boostOffersRefreshAt: number | null;
   nextSalaryAvailableAt: number | null;
+  hasActiveMortgage: boolean;
 
   setFinCoin: React.Dispatch<React.SetStateAction<number>>;
   setActiveJobId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -118,6 +117,7 @@ export function useChallengesGame({
   boostOfferIds,
   boostOffersRefreshAt,
   nextSalaryAvailableAt,
+  hasActiveMortgage,
 
   setFinCoin,
   setActiveJobId,
@@ -238,7 +238,7 @@ export function useChallengesGame({
       ? activeBoostIds.filter((id) => id !== 'salary_boost')
       : activeBoostIds;
 
-    const salaryCooldownSeconds = getSalaryCooldownSeconds(level);  
+    const salaryCooldownSeconds = getSalaryCooldownSeconds(level);
 
     const nextAvailableAt = now + salaryCooldownSeconds * 1000;
 
@@ -258,8 +258,12 @@ export function useChallengesGame({
       success: true,
       message:
         workEfficiency.multiplier < 1
-          ? `Ты получил зарплату: ${finalSalary} FC. Базовая зарплата была ${baseSalary} FC, но из-за низких показателей дома эффективность работы составила ${workEfficiency.percent}%. Следующая зарплата будет доступна через ${Math.ceil(salaryCooldownSeconds / 60)} мин.`
-          : `Ты получил зарплату: ${finalSalary} FC. Следующая будет доступна через ${Math.ceil(salaryCooldownSeconds / 60)} мин.`,
+          ? `Ты получил зарплату: ${finalSalary} FC. Базовая зарплата была ${baseSalary} FC, но из-за низких показателей дома эффективность работы составила ${workEfficiency.percent}%. Следующая зарплата будет доступна через ${Math.ceil(
+              salaryCooldownSeconds / 60
+            )} мин.`
+          : `Ты получил зарплату: ${finalSalary} FC. Следующая будет доступна через ${Math.ceil(
+              salaryCooldownSeconds / 60
+            )} мин.`,
     };
   };
 
@@ -284,6 +288,14 @@ export function useChallengesGame({
       return {
         success: false,
         message: 'Эта недвижимость уже куплена.',
+      };
+    }
+
+    if (hasActiveMortgage) {
+      return {
+        success: false,
+        message:
+          'Сначала заверши текущую ипотеку, а потом покупай новое жильё.',
       };
     }
 
@@ -385,6 +397,7 @@ export function useChallengesGame({
 
   const skipBoostOffer = async (boostId: string) => {
     const boostRefreshSeconds = getBoostRefreshSeconds(level);
+
     if (!boostOfferIds.includes(boostId)) {
       return {
         success: false,

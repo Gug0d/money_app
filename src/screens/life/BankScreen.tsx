@@ -17,6 +17,7 @@ import { loanProducts } from '../../constants/loanProducts';
 import { scalePrice } from '../../constants/economy';
 import { useGame } from '../../store/GameContext';
 import { LifeStackParamList } from '../../navigation/AppNavigator';
+import { getLevelTimeMultiplier } from '../../store/gameConfig';
 
 type Props = NativeStackScreenProps<LifeStackParamList, 'Bank'>;
 type BankTab = 'deposits' | 'loans';
@@ -41,8 +42,9 @@ function formatDuration(seconds: number) {
 }
 
 function formatTimer(seconds: number) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  const safeSeconds = Math.max(0, seconds);
+  const mins = Math.floor(safeSeconds / 60);
+  const secs = safeSeconds % 60;
 
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
@@ -60,14 +62,8 @@ function getEarlyWithdrawText(policy: 'none' | 'no_profit' | 'half_profit') {
   }
 }
 
-function formatPaymentDate(timestamp: number) {
-  const date = new Date(timestamp);
-
-  return date.toLocaleDateString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+function getScaledLoanPaymentDuration(productSeconds: number, level: number) {
+  return Math.max(1, Math.round(productSeconds * getLevelTimeMultiplier(level)));
 }
 
 export default function BankScreen({ navigation }: Props) {
@@ -81,6 +77,7 @@ export default function BankScreen({ navigation }: Props) {
     depositRemainingSeconds,
 
     activeLoan,
+    loanRemainingSeconds,
 
     openDeposit,
     takeLoan,
@@ -90,7 +87,7 @@ export default function BankScreen({ navigation }: Props) {
     reduceDepositTime,
   } = useGame();
 
-    useEffect(() => {
+  useEffect(() => {
     if (level < BANK_UNLOCK_LEVEL) {
       Alert.alert(
         'Банк закрыт',
@@ -136,17 +133,47 @@ export default function BankScreen({ navigation }: Props) {
     return Math.max(0, Math.min(100, Math.round((passed / total) * 100)));
   }, [activeDeposit, depositRemainingSeconds]);
 
+  const currentLoanPayment = useMemo(() => {
+    if (!activeLoan) return 0;
+
+    const basePayment = Math.min(
+      activeLoan.monthlyPayment,
+      activeLoan.remainingDebt
+    );
+
+    if (activeLoan.status !== 'overdue') {
+      return basePayment;
+    }
+
+    return Math.min(
+      basePayment + activeLoan.penaltyAmount,
+      activeLoan.remainingDebt
+    );
+  }, [activeLoan]);
+
+  const currentLoanPaymentShortage = useMemo(() => {
+    if (!activeLoan) return 0;
+
+    return Math.max(0, currentLoanPayment - finCoin);
+  }, [activeLoan, currentLoanPayment, finCoin]);
+
   const loanShortage = useMemo(() => {
     if (!activeLoan) return 0;
 
     return Math.max(0, activeLoan.remainingDebt - finCoin);
   }, [activeLoan, finCoin]);
 
-  const paymentShortage = useMemo(() => {
+  const loanProgressPercent = useMemo(() => {
     if (!activeLoan) return 0;
 
-    return Math.max(0, activeLoan.monthlyPayment - finCoin);
-  }, [activeLoan, finCoin]);
+    const total = activeLoan.paymentDurationSeconds ?? 1;
+
+    if (total <= 0) return 0;
+
+    const passed = total - loanRemainingSeconds;
+
+    return Math.max(0, Math.min(100, Math.round((passed / total) * 100)));
+  }, [activeLoan, loanRemainingSeconds]);
 
   const handleOpenDeposit = async (product: (typeof depositProducts)[number]) => {
     const result = await openDeposit(product);
@@ -159,6 +186,7 @@ export default function BankScreen({ navigation }: Props) {
   };
 
   const handlePayLoan = async () => {
+    const wasOverdue = activeLoan?.status === 'overdue';
     const success = await payLoan();
 
     if (!success) {
@@ -166,7 +194,12 @@ export default function BankScreen({ navigation }: Props) {
       return;
     }
 
-    Alert.alert('Банк', 'Платёж по кредиту успешно внесён.');
+    Alert.alert(
+      'Банк',
+      wasOverdue
+        ? 'Платёж внесён. Просрочка погашена, запущен новый срок платежа.'
+        : 'Платёж по кредиту успешно внесён. Запущен новый срок платежа.'
+    );
   };
 
   const handleCloseLoan = async () => {
@@ -475,9 +508,9 @@ export default function BankScreen({ navigation }: Props) {
 
             <View style={styles.activeInfoGrid}>
               <View style={styles.activeInfoItem}>
-                <Text style={styles.activeInfoLabel}>Платёж</Text>
+                <Text style={styles.activeInfoLabel}>Текущий платёж</Text>
                 <Text style={styles.activeInfoValue}>
-                  {activeLoan.monthlyPayment} FinCoin
+                  {currentLoanPayment} FinCoin
                 </Text>
               </View>
 
@@ -498,32 +531,55 @@ export default function BankScreen({ navigation }: Props) {
 
             <View
               style={[
-                styles.loanChallengeBox,
-                activeLoan.status === 'overdue' && styles.warningBox,
+                styles.loanTimerCard,
+                activeLoan.status === 'overdue' && styles.loanTimerCardOverdue,
               ]}
             >
               <Text
                 style={[
-                  styles.loanChallengeTitle,
-                  activeLoan.status === 'overdue' && styles.warningTitle,
+                  styles.loanTimerTitle,
+                  activeLoan.status === 'overdue' &&
+                    styles.loanTimerTitleOverdue,
                 ]}
               >
                 {activeLoan.status === 'overdue'
                   ? 'Платёж просрочен'
-                  : 'Сегодня нужно внести платёж'}
+                  : 'Время до следующего платежа'}
               </Text>
 
               <Text
                 style={[
-                  styles.loanChallengeText,
-                  activeLoan.status === 'overdue' && styles.warningText,
+                  styles.loanTimerValue,
+                  activeLoan.status === 'overdue' &&
+                    styles.loanTimerValueOverdue,
                 ]}
               >
                 {activeLoan.status === 'overdue'
-                  ? `У вас просрочка ${activeLoan.overdueDays} дн. Штраф: ${activeLoan.penaltyAmount} FinCoin.`
-                  : `Следующий платёж: ${activeLoan.monthlyPayment} FinCoin. Дата платежа: ${formatPaymentDate(
-                      activeLoan.nextPaymentAt
-                    )}.`}
+                  ? '00:00'
+                  : formatTimer(loanRemainingSeconds)}
+              </Text>
+
+              <View style={styles.loanProgressBarBackground}>
+                <View
+                  style={[
+                    styles.loanProgressBarFill,
+                    { width: `${loanProgressPercent}%` },
+                    activeLoan.status === 'overdue' &&
+                      styles.loanProgressBarFillOverdue,
+                  ]}
+                />
+              </View>
+
+              <Text
+                style={[
+                  styles.loanTimerHint,
+                  activeLoan.status === 'overdue' &&
+                    styles.loanTimerHintOverdue,
+                ]}
+              >
+                {activeLoan.status === 'overdue'
+                  ? `Начислен штраф: ${activeLoan.penaltyAmount} FinCoin. Нужно погасить просрочку.`
+                  : 'Если таймер закончится, кредит перейдёт в просрочку и будет начислен штраф.'}
               </Text>
             </View>
 
@@ -531,21 +587,24 @@ export default function BankScreen({ navigation }: Props) {
               <TouchableOpacity
                 style={[
                   styles.loanActionButton,
-                  paymentShortage > 0 && styles.actionButtonLocked,
+                  currentLoanPaymentShortage > 0 && styles.actionButtonLocked,
                 ]}
                 activeOpacity={0.85}
-                disabled={paymentShortage > 0}
+                disabled={currentLoanPaymentShortage > 0}
                 onPress={handlePayLoan}
               >
                 <Text
                   style={[
                     styles.loanActionButtonText,
-                    paymentShortage > 0 && styles.actionButtonTextLocked,
+                    currentLoanPaymentShortage > 0 &&
+                      styles.actionButtonTextLocked,
                   ]}
                 >
-                  {paymentShortage > 0
-                    ? `Не хватает ${paymentShortage} FinCoin`
-                    : 'Внести платёж'}
+                  {currentLoanPaymentShortage > 0
+                    ? `Не хватает ${currentLoanPaymentShortage} FinCoin`
+                    : activeLoan.status === 'overdue'
+                    ? `Погасить просрочку: ${currentLoanPayment} FinCoin`
+                    : `Внести платёж: ${currentLoanPayment} FinCoin`}
                 </Text>
               </TouchableOpacity>
 
@@ -783,6 +842,11 @@ export default function BankScreen({ navigation }: Props) {
                 product.amount + product.amount * (product.interestPercent / 100)
               );
 
+              const paymentDurationSeconds = getScaledLoanPaymentDuration(
+                product.durationSeconds,
+                level
+              );
+
               return (
                 <View
                   key={product.id}
@@ -883,7 +947,9 @@ export default function BankScreen({ navigation }: Props) {
                     ]}
                   >
                     Кредит начисляет FinCoin сразу, но создаёт обязательные
-                    платежи. Его можно закрыть досрочно полной суммой.
+                    платежи. На каждый платёж даётся{' '}
+                    {formatDuration(paymentDurationSeconds)}. Время зависит от
+                    уровня игрока и типа кредита.
                   </Text>
 
                   <TouchableOpacity
@@ -925,6 +991,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -933,6 +1000,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
+
   backButton: {
     width: 42,
     height: 42,
@@ -941,41 +1009,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: colors.textDark,
   },
+
   headerRightPlaceholder: {
     width: 42,
     height: 42,
   },
+
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 32,
   },
+
   balanceCard: {
     backgroundColor: colors.accent,
     borderRadius: 24,
     padding: 18,
     marginBottom: 18,
   },
+
   balanceTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+
   balanceLabel: {
     fontSize: 14,
     color: colors.textDark,
     opacity: 0.75,
     marginBottom: 6,
   },
+
   balanceValue: {
     fontSize: 26,
     fontWeight: '800',
     color: colors.textDark,
   },
+
   balanceHint: {
     marginTop: 12,
     fontSize: 14,
@@ -983,17 +1059,20 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     opacity: 0.8,
   },
+
   levelBadge: {
     backgroundColor: 'rgba(255,255,255,0.45)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
   },
+
   levelBadgeText: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.textDark,
   },
+
   mortgageBankCard: {
     backgroundColor: colors.card,
     borderRadius: 24,
@@ -1002,6 +1081,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E6E1D6',
   },
+
   mortgageBankHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1009,10 +1089,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     gap: 12,
   },
+
   mortgageBankTitleRow: {
     flexDirection: 'row',
     flex: 1,
   },
+
   mortgageBankIcon: {
     width: 46,
     height: 46,
@@ -1022,63 +1104,77 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+
   mortgageBankTitle: {
     fontSize: 20,
     fontWeight: '900',
     color: colors.textDark,
     marginBottom: 4,
   },
+
   mortgageBankSubtitle: {
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
   },
+
   mortgageBankBadge: {
     backgroundColor: '#E8F7C8',
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
   },
+
   mortgageBankBadgeActive: {
     backgroundColor: '#FFF0C8',
   },
+
   mortgageBankBadgeLocked: {
     backgroundColor: '#F1F1F1',
   },
+
   mortgageBankBadgeCompleted: {
     backgroundColor: '#EAF6F3',
   },
+
   mortgageBankBadgeText: {
     fontSize: 12,
     fontWeight: '800',
     color: colors.textDark,
   },
+
   mortgageBankBadgeTextLocked: {
     color: colors.muted,
   },
+
   mortgageBankText: {
     fontSize: 15,
     lineHeight: 22,
     color: '#31433F',
     marginBottom: 14,
   },
+
   mortgageBankButton: {
     backgroundColor: colors.accent,
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
   },
+
   mortgageBankButtonDisabled: {
     backgroundColor: '#EEF2F0',
   },
+
   mortgageBankButtonText: {
     fontSize: 17,
     fontWeight: '900',
     color: colors.primaryDark,
   },
+
   mortgageBankButtonTextDisabled: {
     color: colors.muted,
   },
+
   activeCard: {
     backgroundColor: colors.card,
     borderRadius: 24,
@@ -1087,17 +1183,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E6E1D6',
   },
+
   activeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 14,
   },
+
   activeTitleRow: {
     flexDirection: 'row',
     flex: 1,
     marginRight: 10,
   },
+
   activeIconWrap: {
     width: 46,
     height: 46,
@@ -1107,39 +1206,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+
   activeTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 4,
   },
+
   activeSubtitle: {
     fontSize: 14,
     color: colors.muted,
   },
+
   activeBadge: {
     backgroundColor: '#E8F7C8',
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
   },
+
   activeBadgeText: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.textDark,
   },
+
   overdueBadge: {
     backgroundColor: '#FFE2E2',
   },
+
   overdueBadgeText: {
     color: '#A33A3A',
   },
+
   activeInfoGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
     marginBottom: 14,
   },
+
   activeInfoItem: {
     flex: 1,
     backgroundColor: '#F7F7F7',
@@ -1147,22 +1254,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
   },
+
   activeInfoLabel: {
     fontSize: 12,
     color: colors.muted,
     marginBottom: 6,
   },
+
   activeInfoValue: {
     fontSize: 14,
     fontWeight: '800',
     color: colors.textDark,
   },
+
   timerLabel: {
     fontSize: 13,
     color: colors.muted,
     marginBottom: 6,
     textAlign: 'center',
   },
+
   timerValue: {
     fontSize: 30,
     fontWeight: '900',
@@ -1170,6 +1281,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
+
   progressBarBackground: {
     height: 12,
     borderRadius: 999,
@@ -1177,21 +1289,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 8,
   },
+
   progressBarFill: {
     height: '100%',
     borderRadius: 999,
     backgroundColor: colors.primary,
   },
+
   progressHint: {
     fontSize: 13,
     color: colors.muted,
     textAlign: 'center',
   },
+
   testButtonsRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 14,
   },
+
   testButton: {
     flex: 1,
     backgroundColor: colors.primary,
@@ -1200,45 +1316,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   testButtonText: {
     fontSize: 13,
     fontWeight: '800',
     color: colors.textLight,
     textAlign: 'center',
   },
-  loanChallengeBox: {
-    marginTop: 2,
-    marginBottom: 14,
+
+  loanTimerCard: {
     backgroundColor: '#EEF9EF',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#CDE9D0',
+    marginBottom: 14,
   },
-  loanChallengeTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#2E7D32',
-    marginBottom: 6,
-  },
-  loanChallengeText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#356B39',
-  },
-  warningBox: {
+
+  loanTimerCardOverdue: {
     backgroundColor: '#FFF1F1',
     borderColor: '#F2CACA',
   },
-  warningTitle: {
+
+  loanTimerTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#2E7D32',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  loanTimerTitleOverdue: {
     color: '#A33A3A',
   },
-  warningText: {
+
+  loanTimerValue: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: colors.primaryDark,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+
+  loanTimerValueOverdue: {
+    color: '#A33A3A',
+  },
+
+  loanProgressBarBackground: {
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: '#DDEAE5',
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+
+  loanProgressBarFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+  },
+
+  loanProgressBarFillOverdue: {
+    backgroundColor: '#A33A3A',
+  },
+
+  loanTimerHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#356B39',
+    textAlign: 'center',
+  },
+
+  loanTimerHintOverdue: {
     color: '#7A3B3B',
   },
+
   loanButtonsColumn: {
     gap: 10,
   },
+
   loanActionButton: {
     borderRadius: 16,
     paddingVertical: 14,
@@ -1246,12 +1403,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primary,
   },
+
   loanActionButtonText: {
     fontSize: 15,
     fontWeight: '800',
     color: colors.textLight,
     textAlign: 'center',
   },
+
   testOverdueButton: {
     borderRadius: 16,
     paddingVertical: 13,
@@ -1261,17 +1420,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F2CACA',
   },
+
   testOverdueButtonText: {
     fontSize: 14,
     fontWeight: '800',
     color: '#A33A3A',
     textAlign: 'center',
   },
+
   tabsRow: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 18,
   },
+
   tabButton: {
     flex: 1,
     backgroundColor: colors.card,
@@ -1282,40 +1444,49 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
   },
+
   tabButtonActive: {
     backgroundColor: colors.primary,
   },
+
   tabButtonText: {
     marginLeft: 8,
     fontSize: 15,
     fontWeight: '700',
     color: colors.primaryDark,
   },
+
   tabButtonTextActive: {
     color: colors.textLight,
   },
+
   section: {
     gap: 14,
   },
+
   card: {
     backgroundColor: colors.card,
     borderRadius: 24,
     padding: 18,
   },
+
   cardLocked: {
     opacity: 0.82,
   },
+
   cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 14,
   },
+
   cardTitleContainer: {
     flexDirection: 'row',
     flex: 1,
     marginRight: 12,
   },
+
   iconWrap: {
     width: 46,
     height: 46,
@@ -1325,44 +1496,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+
   iconWrapLocked: {
     backgroundColor: '#ECECEC',
   },
+
   cardTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: colors.textDark,
     marginBottom: 4,
   },
+
   cardSubtitle: {
     fontSize: 13,
     color: colors.muted,
   },
+
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
   },
+
   statusBadgeUnlocked: {
     backgroundColor: '#E8F7C8',
   },
+
   statusBadgeLocked: {
     backgroundColor: '#EFEFEF',
   },
+
   statusBadgeText: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.textDark,
   },
+
   statusBadgeTextLocked: {
     color: colors.muted,
   },
+
   infoGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 14,
     gap: 10,
   },
+
   infoItem: {
     flex: 1,
     backgroundColor: '#F7F7F7',
@@ -1370,16 +1551,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
   },
+
   infoLabel: {
     fontSize: 12,
     color: colors.muted,
     marginBottom: 6,
   },
+
   infoValue: {
     fontSize: 14,
     fontWeight: '800',
     color: colors.textDark,
   },
+
   extraInfo: {
     fontSize: 13,
     lineHeight: 19,
@@ -1387,27 +1571,33 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     marginBottom: 14,
   },
+
   lockedText: {
     color: colors.muted,
   },
+
   actionButton: {
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   actionButtonPrimary: {
     backgroundColor: colors.primary,
   },
+
   actionButtonLocked: {
     backgroundColor: '#ECECEC',
   },
+
   actionButtonText: {
     fontSize: 15,
     fontWeight: '800',
     color: colors.textLight,
     textAlign: 'center',
   },
+
   actionButtonTextLocked: {
     color: colors.muted,
   },

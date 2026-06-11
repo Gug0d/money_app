@@ -39,6 +39,7 @@ export default function ChallengesScreen({ navigation }: Props) {
     finCoin,
     homeComfort,
     homeDiscipline,
+    mortgageStatus,
 
     activeJobId,
     ownedPropertyId,
@@ -133,6 +134,12 @@ export default function ChallengesScreen({ navigation }: Props) {
     );
   };
 
+  const handleBuyPropertyWithMortgage = (propertyId: string) => {
+    navigation.navigate('MortgageOffers', {
+      selectedPropertyId: propertyId,
+    });
+  };
+
   const handleRiskDeal = async (dealId: string) => {
     const result = await runRiskDeal(dealId);
 
@@ -221,51 +228,51 @@ export default function ChallengesScreen({ navigation }: Props) {
               </View>
             </View>
 
-            
             <View
-                style={[
-                  styles.workEfficiencyBox,
-                  workEfficiency.multiplier < 1 && styles.workEfficiencyBoxWarning,
-                ]}
-              >
-                <View style={styles.workEfficiencyHeader}>
-                  <Ionicons
-                    name={
-                      workEfficiency.multiplier < 1
-                        ? 'warning-outline'
-                        : 'checkmark-circle-outline'
-                    }
-                    size={20}
-                    color={
-                      workEfficiency.multiplier < 1
-                        ? '#8A5A00'
-                        : colors.primary
-                    }
-                  />
+              style={[
+                styles.workEfficiencyBox,
+                workEfficiency.multiplier < 1 &&
+                  styles.workEfficiencyBoxWarning,
+              ]}
+            >
+              <View style={styles.workEfficiencyHeader}>
+                <Ionicons
+                  name={
+                    workEfficiency.multiplier < 1
+                      ? 'warning-outline'
+                      : 'checkmark-circle-outline'
+                  }
+                  size={20}
+                  color={
+                    workEfficiency.multiplier < 1
+                      ? '#8A5A00'
+                      : colors.primary
+                  }
+                />
 
-                  <Text style={styles.workEfficiencyTitle}>
-                    {workEfficiency.title}
-                  </Text>
-                </View>
+                <Text style={styles.workEfficiencyTitle}>
+                  {workEfficiency.title}
+                </Text>
+              </View>
 
-                <Text style={styles.workEfficiencyText}>
-                  {workEfficiency.description}
+              <Text style={styles.workEfficiencyText}>
+                {workEfficiency.description}
+              </Text>
+
+              <View style={styles.workStatsRow}>
+                <Text style={styles.workStatText}>
+                  Комфорт: {homeComfort}%
                 </Text>
 
-                <View style={styles.workStatsRow}>
-                  <Text style={styles.workStatText}>
-                    Комфорт: {homeComfort}%
-                  </Text>
+                <Text style={styles.workStatText}>
+                  Дисциплина: {homeDiscipline}%
+                </Text>
 
-                  <Text style={styles.workStatText}>
-                    Дисциплина: {homeDiscipline}%
-                  </Text>
-
-                  <Text style={styles.workStatText}>
-                    Эффективность: {workEfficiency.percent}%
-                  </Text>
-                </View>
+                <Text style={styles.workStatText}>
+                  Эффективность: {workEfficiency.percent}%
+                </Text>
               </View>
+            </View>
 
             {activeBoostIds.length > 0 ? (
               <View style={styles.activeBoostsBox}>
@@ -378,6 +385,13 @@ export default function ChallengesScreen({ navigation }: Props) {
           const owned = ownedPropertyId === property.id;
           const price = scaleFinCoinPrice(property.price, level);
 
+          const mortgageLocked = mortgageStatus === 'locked';
+          const mortgageActive = mortgageStatus === 'active';
+
+          const purchaseUnavailable = locked || owned || mortgageActive;
+          const mortgageUnavailable =
+            locked || owned || mortgageLocked || mortgageActive;
+
           return (
             <View key={property.id} style={styles.card}>
               <View style={styles.cardTopRow}>
@@ -411,20 +425,59 @@ export default function ChallengesScreen({ navigation }: Props) {
 
               <Text style={styles.bonusText}>Бонус: {property.bonus}</Text>
 
-              <TouchableOpacity
-                style={[
-                  styles.secondaryButton,
-                  locked && styles.disabledButton,
-                  owned && styles.activeButton,
-                ]}
-                activeOpacity={0.88}
-                onPress={() => handleBuyProperty(property.id)}
-                disabled={locked || owned}
-              >
-                <Text style={styles.secondaryButtonText}>
-                  {owned ? 'Куплено' : locked ? 'Недоступно' : 'Купить'}
+              {!owned && !locked ? (
+                <Text style={styles.mortgageHintText}>
+                  Можно купить сразу за полную стоимость или оформить ипотеку
+                  на это жильё.
                 </Text>
-              </TouchableOpacity>
+              ) : null}
+
+              <View style={styles.propertyButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.secondaryButton,
+                    styles.propertyButton,
+                    purchaseUnavailable && styles.disabledButton,
+                    owned && styles.activeButton,
+                  ]}
+                  activeOpacity={0.88}
+                  onPress={() => handleBuyProperty(property.id)}
+                  disabled={purchaseUnavailable}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {owned
+                      ? 'Куплено'
+                      : locked
+                      ? 'Недоступно'
+                      : mortgageActive
+                      ? 'Ипотека активна'
+                      : 'Купить'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.mortgageButton,
+                    styles.propertyButton,
+                    mortgageUnavailable && styles.disabledButton,
+                  ]}
+                  activeOpacity={0.88}
+                  onPress={() => handleBuyPropertyWithMortgage(property.id)}
+                  disabled={mortgageUnavailable}
+                >
+                  <Text style={styles.mortgageButtonText}>
+                    {owned
+                      ? 'Куплено'
+                      : locked
+                      ? 'Недоступно'
+                      : mortgageLocked
+                      ? 'Ипотека с 3 ур.'
+                      : mortgageActive
+                      ? 'Ипотека активна'
+                      : 'В ипотеку'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
@@ -828,6 +881,34 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primaryDark,
   },
+  mortgageHintText: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: colors.muted,
+  },
+  propertyButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  propertyButton: {
+    flex: 1,
+    marginTop: 0,
+  },
+  mortgageButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 18,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  mortgageButtonText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: colors.primaryDark,
+    textAlign: 'center',
+  },
   riskStatsRow: {
     marginTop: 14,
     flexDirection: 'row',
@@ -877,15 +958,13 @@ const styles = StyleSheet.create({
     color: colors.textDark,
     textAlign: 'center',
   },
-
-
   workEfficiencyBox: {
-  backgroundColor: '#EAF6F3',
-  borderRadius: 18,
-  padding: 14,
-  marginBottom: 16,
-  borderWidth: 1,
-  borderColor: '#CFE5DD',
+    backgroundColor: '#EAF6F3',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#CFE5DD',
   },
   workEfficiencyBoxWarning: {
     backgroundColor: '#FFF1C7',

@@ -30,7 +30,6 @@ import {
   DEFAULT_MORTGAGE,
   MORTGAGE_UNLOCK_LEVEL,
   createDefaultHomeBills,
-  convertTotalXpToLevelProgress,
   getHomeBillsRefreshDuration,
   getLevelData,
   getRandomEventDelay,
@@ -42,6 +41,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
   const [finCoin, setFinCoin] = useState(0);
+  const [advisorQuestionsAsked, setAdvisorQuestionsAsked] = useState(0);
   const [mortgage, setMortgage] = useState<MortgageState>(DEFAULT_MORTGAGE);
 
   const [activeDeposit, setActiveDeposit] = useState<ActiveDeposit | null>(
@@ -109,38 +109,41 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     saveUserGameData,
   });
 
-const challengesGame = useChallengesGame({
-  level,
-  finCoin,
-  homeComfort: householdGame.homeComfort,
-  homeDiscipline: householdGame.homeDiscipline,
+  const challengesGame = useChallengesGame({
+    level,
+    finCoin,
+    homeComfort: householdGame.homeComfort,
+    homeDiscipline: householdGame.homeDiscipline,
 
-  activeJobId,
-  ownedPropertyId,
-  activeBoostIds,
-  boostOfferIds,
-  boostOffersRefreshAt,
-  nextSalaryAvailableAt,
+    activeJobId,
+    ownedPropertyId,
+    activeBoostIds,
+    boostOfferIds,
+    boostOffersRefreshAt,
+    nextSalaryAvailableAt,
+    hasActiveMortgage: mortgage.isActive,
 
-  setFinCoin,
-  setActiveJobId,
-  setOwnedPropertyId,
-  setActiveBoostIds,
-  setBoostOfferIds,
-  setBoostOffersRefreshAt,
-  setNextSalaryAvailableAt,
+    setFinCoin,
+    setActiveJobId,
+    setOwnedPropertyId,
+    setActiveBoostIds,
+    setBoostOfferIds,
+    setBoostOffersRefreshAt,
+    setNextSalaryAvailableAt,
 
-  isGuest,
-  userId: userIdRef.current,
-  saveUserGameData,
-});
+    isGuest,
+    userId: userIdRef.current,
+    saveUserGameData,
+  });
 
   const mortgageGame = useMortgageGame({
     level,
     finCoin,
     mortgage,
+    ownedPropertyId,
     setMortgage,
     setFinCoin,
+    setOwnedPropertyId,
     setMortgageRemainingSeconds,
     isGuest,
     userId: userIdRef.current,
@@ -213,6 +216,7 @@ const challengesGame = useChallengesGame({
     setLevel(1);
     setXp(0);
     setFinCoin(0);
+    setAdvisorQuestionsAsked(0);
     setMortgage(DEFAULT_MORTGAGE);
     setMortgageRemainingSeconds(0);
 
@@ -278,6 +282,7 @@ const challengesGame = useChallengesGame({
             level: 1,
             xp: 0,
             finCoin: 0,
+            advisorQuestionsAsked: 0,
             viewedTutorialIds: [],
 
             mortgage: DEFAULT_MORTGAGE,
@@ -316,10 +321,15 @@ const challengesGame = useChallengesGame({
 
       const data = snap.data();
 
-
       setLevel(typeof data.level === 'number' ? data.level : 1);
       setXp(typeof data.xp === 'number' ? data.xp : 0);
       setFinCoin(typeof data.finCoin === 'number' ? data.finCoin : 0);
+      setAdvisorQuestionsAsked(
+        typeof data.advisorQuestionsAsked === 'number'
+          ? data.advisorQuestionsAsked
+          : 0
+      );
+
       setMortgage(data.mortgage || DEFAULT_MORTGAGE);
       setActiveDeposit(data.activeDeposit || null);
       setActiveLoan(data.activeLoan || null);
@@ -436,7 +446,7 @@ const challengesGame = useChallengesGame({
   };
 
   const resetTutorialProgress = async () => {
-  setViewedTutorialIds([]);
+    setViewedTutorialIds([]);
 
     if (!isGuest && userIdRef.current) {
       try {
@@ -449,10 +459,39 @@ const challengesGame = useChallengesGame({
     }
   };
 
+  const payForAdvisorQuestion = async (cost: number) => {
+    if (cost <= 0) return true;
+
+    if (finCoin < cost) {
+      return false;
+    }
+
+    const nextFinCoin = finCoin - cost;
+    const nextAdvisorQuestionsAsked = advisorQuestionsAsked + 1;
+
+    setFinCoin(nextFinCoin);
+    setAdvisorQuestionsAsked(nextAdvisorQuestionsAsked);
+
+    if (!isGuest && userIdRef.current) {
+      try {
+        await saveUserGameData({
+          finCoin: nextFinCoin,
+          advisorQuestionsAsked: nextAdvisorQuestionsAsked,
+        });
+      } catch (error) {
+        console.log('Ошибка оплаты вопроса советнику:', error);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const value: GameContextType = {
     xp,
     finCoin,
     level,
+    advisorQuestionsAsked,
     currentLevelXp: xp,
     nextLevelXp: levelData.xpToNextLevel,
     progressToNextLevel,
@@ -475,7 +514,7 @@ const challengesGame = useChallengesGame({
     homeEvent: householdGame.homeEvent,
     homeEventAvailableAt: householdGame.homeEventAvailableAt,
     homeBillsRefreshRemainingSeconds:
-    householdGame.homeBillsRefreshRemainingSeconds,
+      householdGame.homeBillsRefreshRemainingSeconds,
 
     activeJobId,
     ownedPropertyId,
@@ -504,7 +543,6 @@ const challengesGame = useChallengesGame({
     viewedTutorialIds,
 
     markTutorialViewed,
-
     resetTutorialProgress,
 
     addRewards: rewardsGame.addRewards,
@@ -512,6 +550,7 @@ const challengesGame = useChallengesGame({
     addTestCoins: rewardsGame.addTestCoins,
     resetLevelForTest: rewardsGame.resetLevelForTest,
     spendFinCoin: rewardsGame.spendFinCoin,
+    payForAdvisorQuestion,
 
     openDeposit: depositGame.openDeposit,
     reduceDepositTime: depositGame.reduceDepositTime,

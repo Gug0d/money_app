@@ -32,13 +32,21 @@ export function scaleRubPrice(basePrice: number, level: number): number {
 
 export const ADVISOR_BASE_QUESTION_COST = 20;
 export const ADVISOR_COST_GROWTH_PER_LEVEL = 0.18;
+export const ADVISOR_COST_STEP_PER_QUESTION = 10;
 
-export function getAdvisorQuestionCost(level: number): number {
+export function getAdvisorQuestionCost(
+  level: number,
+  advisorQuestionsAsked = 0
+): number {
   const safeLevel = Math.max(1, level);
+  const safeQuestionsAsked = Math.max(0, advisorQuestionsAsked);
 
-  const rawCost =
+  const levelCost =
     ADVISOR_BASE_QUESTION_COST *
     (1 + (safeLevel - 1) * ADVISOR_COST_GROWTH_PER_LEVEL);
+
+  const questionCost = safeQuestionsAsked * ADVISOR_COST_STEP_PER_QUESTION;
+  const rawCost = levelCost + questionCost;
 
   return Math.max(ADVISOR_BASE_QUESTION_COST, Math.round(rawCost / 5) * 5);
 }
@@ -95,8 +103,11 @@ export function getBoostRefreshSeconds(level: number): number {
   return scaleDurationSeconds(GAME_TIMERS.boostRefresh, level);
 }
 
-export function getLoanPaymentDurationSeconds(level: number): number {
-  return scaleDurationSeconds(GAME_TIMERS.loanPayment, level);
+export function getLoanPaymentDurationSeconds(
+  level: number,
+  baseSeconds = GAME_TIMERS.loanPayment
+): number {
+  return scaleDurationSeconds(baseSeconds, level);
 }
 
 export function getMortgageDurationSeconds(level: number): number {
@@ -230,6 +241,14 @@ export const DEFAULT_MORTGAGE: MortgageState = {
   totalSeconds: GAME_TIMERS.mortgageDuration,
   durationSeconds: GAME_TIMERS.mortgageDuration,
   startedAt: null,
+  propertyId: null,
+  propertyTitle: null,
+  offerId: null,
+  bankName: null,
+  downPayment: 0,
+  monthlyPayment: 0,
+  totalPayment: 0,
+  overpayment: 0,
 };
 
 export const HOME_EVENTS: HomeEvent[] = [

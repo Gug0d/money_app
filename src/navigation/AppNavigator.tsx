@@ -47,7 +47,7 @@ import { useGame } from '../store/GameContext';
 export type LifeStackParamList = {
   LifeMain: undefined;
   Bank: undefined;
-  MortgageOffers: undefined;
+  MortgageOffers: { selectedPropertyId?: string } | undefined;
   Household: undefined;
   Challenges: undefined;
 };

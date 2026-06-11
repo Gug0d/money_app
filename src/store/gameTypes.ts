@@ -36,6 +36,16 @@ export type MortgageState = {
   totalSeconds: number;
   durationSeconds: number;
   startedAt: number | null;
+
+  propertyId?: string | null;
+  propertyTitle?: string | null;
+
+  offerId?: string | null;
+  bankName?: string | null;
+  downPayment?: number;
+  monthlyPayment?: number;
+  totalPayment?: number;
+  overpayment?: number;
 };
 
 export type ActiveDeposit = {
@@ -60,6 +70,7 @@ export type ActiveLoan = {
   paidPayments: number;
   totalPayments: number;
   nextPaymentAt: number;
+  paymentDurationSeconds?: number;
   overdueDays: number;
   penaltyAmount: number;
   status: ActiveLoanStatus;
@@ -69,6 +80,7 @@ export type GameContextType = {
   xp: number;
   finCoin: number;
   level: number;
+  advisorQuestionsAsked: number;
   currentLevelXp: number;
   nextLevelXp: number;
   progressToNextLevel: number;
@@ -98,7 +110,6 @@ export type GameContextType = {
   boostOffersRefreshAt: number | null;
   nextSalaryAvailableAt: number | null;
 
-
   applyJob: (jobId: string) => Promise<{ success: boolean; message: string }>;
   receiveSalary: () => Promise<{ success: boolean; message: string }>;
   buyProperty: (
@@ -111,8 +122,6 @@ export type GameContextType = {
   runRiskDeal: (
     dealId: string
   ) => Promise<{ success: boolean; message: string }>;
-
-
 
   payHomeBill: (billId: number) => Promise<boolean>;
   repairHomeProblem: () => Promise<boolean>;
@@ -134,6 +143,7 @@ export type GameContextType = {
   addTestCoins: (amount: number) => Promise<void>;
   resetLevelForTest: () => Promise<void>;
   spendFinCoin: (amount: number) => Promise<boolean>;
+  payForAdvisorQuestion: (cost: number) => Promise<boolean>;
 
   openDeposit: (
     product: DepositProduct,
@@ -153,6 +163,13 @@ export type GameContextType = {
   startMortgage: (options?: {
     totalSeconds?: number;
     downPayment?: number;
+    propertyId?: string;
+    propertyTitle?: string;
+    offerId?: string;
+    bankName?: string;
+    monthlyPayment?: number;
+    totalPayment?: number;
+    overpayment?: number;
   }) => Promise<boolean>;
 
   reduceMortgageTime: (seconds: number, cost: number) => Promise<boolean>;
